@@ -40,6 +40,14 @@ export type RepositoryRecord = {
     name: string;
     path: string;
     enabled: boolean;
+    teamworkProjectId: number | null;
+    teamworkProjectName: string | null;
+    teamworkProjectUrl: string | null;
+};
+
+export type TeamworkProject = {
+    id: number;
+    name: string;
 };
 
 export type TimesheetSettings = {
@@ -58,6 +66,9 @@ export type TimesheetPageProps = {
     days: TimesheetDay[];
     problems: TimesheetProblem[];
     repositories: RepositoryRecord[];
+    teamworkProjects: TeamworkProject[];
+    teamworkError: string | null;
+    teamworkConfigured: boolean;
     settings: TimesheetSettings;
     discoverRoot: string;
     discoverRoots: string[];

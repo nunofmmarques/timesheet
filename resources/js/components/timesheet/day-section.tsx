@@ -13,9 +13,6 @@ import type {
 } from '@/types/timesheet';
 
 export function DaySection({ day }: { day: TimesheetDay }) {
-    const windows = day.windows
-        .map((window) => `${window.start}–${window.end}`)
-        .join(', ');
     const rows =
         day.blocks.length > 0
             ? day.blocks.map((block) => {
@@ -41,19 +38,14 @@ export function DaySection({ day }: { day: TimesheetDay }) {
 
     return (
         <section className="flex flex-col gap-4">
-            <div className="flex flex-col gap-0.5">
-                <div className="flex items-baseline justify-between gap-3">
-                    <h2 className="font-heading text-base font-medium">
-                        {day.label}
-                    </h2>
-                    <p className="text-sm text-muted-foreground tabular-nums">
-                        {day.capacityMinutes > 0
-                            ? formatDuration(day.capacityMinutes)
-                            : 'No scheduled hours'}
-                    </p>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                    {windows !== '' ? windows : 'Weekend. No hours to log.'}
+            <div className="flex items-baseline justify-between gap-3">
+                <h2 className="font-heading text-base font-medium">
+                    {day.label}
+                </h2>
+                <p className="text-sm text-muted-foreground tabular-nums">
+                    {day.capacityMinutes > 0
+                        ? formatDuration(day.capacityMinutes)
+                        : 'No scheduled hours'}
                 </p>
             </div>
 

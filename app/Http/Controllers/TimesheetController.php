@@ -6,6 +6,7 @@ use App\Models\Repository;
 use App\Models\TimesheetSetting;
 use App\Services\GitCommitReader;
 use App\Services\RepositoryCatalog;
+use App\Services\TeamworkProjects;
 use App\Services\WorkdayPlanner;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -23,6 +24,7 @@ class TimesheetController extends Controller
         RepositoryCatalog $catalog,
         GitCommitReader $reader,
         WorkdayPlanner $planner,
+        TeamworkProjects $teamwork,
     ): Response {
         set_time_limit(120);
 
@@ -60,6 +62,7 @@ class TimesheetController extends Controller
         $days = $planner->plan($commits, $timezone);
 
         $discoverRoots = $catalog->discoverRoots();
+        $teamworkProjects = $this->teamworkProjects($teamwork);
 
         return Inertia::render('timesheet', [
             'from' => $from,
@@ -72,7 +75,13 @@ class TimesheetController extends Controller
                 'name' => $repository->name,
                 'path' => $repository->path,
                 'enabled' => $repository->enabled,
+                'teamworkProjectId' => $repository->teamwork_project_id,
+                'teamworkProjectName' => $repository->teamwork_project_name,
+                'teamworkProjectUrl' => $teamwork->projectUrl($repository->teamwork_project_id),
             ])->values(),
+            'teamworkProjects' => $teamworkProjects['projects'],
+            'teamworkError' => $teamworkProjects['error'],
+            'teamworkConfigured' => $teamwork->configured(),
             'settings' => [
                 'authorEmail' => $setting->author_email ?? '',
             ],
@@ -99,35 +108,24 @@ class TimesheetController extends Controller
         return back();
     }
 
-    public function storeRepository(Request $request, RepositoryCatalog $catalog): RedirectResponse
+    public function scan(RepositoryCatalog $catalog): RedirectResponse
     {
-        $data = $request->validate([
-            'path' => ['required', 'string', 'max:1000'],
-        ]);
+        $roots = $catalog->discoverRoots();
 
-        try {
-            $catalog->addPath($data['path']);
-        } catch (InvalidArgumentException $exception) {
+        if ($roots === []) {
             throw ValidationException::withMessages([
-                'path' => $exception->getMessage(),
+                'directory' => 'No scan folders are configured.',
             ]);
         }
 
-        return back();
-    }
+        $added = 0;
 
-    public function scan(Request $request, RepositoryCatalog $catalog): RedirectResponse
-    {
-        $data = $request->validate([
-            'directory' => ['required', 'string', 'max:1000'],
-        ]);
-
-        try {
-            $added = $catalog->importDirectory($data['directory']);
-        } catch (InvalidArgumentException $exception) {
-            throw ValidationException::withMessages([
-                'directory' => $exception->getMessage(),
-            ]);
+        foreach ($roots as $root) {
+            try {
+                $added += $catalog->importDirectory($root);
+            } catch (InvalidArgumentException) {
+                continue;
+            }
         }
 
         return back()->with('status', $added === 1
@@ -135,13 +133,37 @@ class TimesheetController extends Controller
             : "Added {$added} repositories.");
     }
 
-    public function updateRepository(Request $request, Repository $repository): RedirectResponse
+    public function updateRepository(Request $request, Repository $repository, TeamworkProjects $teamwork): RedirectResponse
     {
         $data = $request->validate([
-            'enabled' => ['required', 'boolean'],
+            'enabled' => ['sometimes', 'boolean'],
+            'teamwork_project_id' => ['sometimes', 'nullable', 'integer'],
         ]);
 
-        $repository->update($data);
+        if (array_key_exists('teamwork_project_id', $data)) {
+            $projectId = $data['teamwork_project_id'];
+
+            if ($projectId === null) {
+                $repository->teamwork_project_id = null;
+                $repository->teamwork_project_name = null;
+            } else {
+                $project = $teamwork->find($projectId);
+
+                if ($project === null) {
+                    throw ValidationException::withMessages([
+                        'teamwork_project_id' => 'That Teamwork project is not available.',
+                    ]);
+                }
+
+                $repository->teamwork_project_id = $project['id'];
+                $repository->teamwork_project_name = $project['name'];
+            }
+
+            unset($data['teamwork_project_id']);
+        }
+
+        $repository->fill($data);
+        $repository->save();
 
         return back();
     }
@@ -151,6 +173,24 @@ class TimesheetController extends Controller
         $repository->delete();
 
         return back();
+    }
+
+    /**
+     * @return array{projects: list<array{id: int, name: string}>, error: string|null}
+     */
+    private function teamworkProjects(TeamworkProjects $teamwork): array
+    {
+        if (! $teamwork->configured()) {
+            return ['projects' => [], 'error' => null];
+        }
+
+        try {
+            return ['projects' => $teamwork->all(), 'error' => null];
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return ['projects' => [], 'error' => 'Teamwork projects could not be loaded.'];
+        }
     }
 
     /**

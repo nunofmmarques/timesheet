@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { DaySection } from '@/components/timesheet/day-section';
 import { RepositorySheet } from '@/components/timesheet/repository-sheet';
 import { SettingsSheet } from '@/components/timesheet/settings-sheet';
+import { TeamworkSheet } from '@/components/timesheet/teamwork-sheet';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,8 +37,10 @@ export default function Timesheet({
     days,
     problems,
     repositories,
+    teamworkProjects,
+    teamworkError,
+    teamworkConfigured,
     settings,
-    discoverRoot,
     discoverRoots,
 }: TimesheetPageProps) {
     const page = usePage().props;
@@ -80,8 +83,14 @@ export default function Timesheet({
                     <div className="flex flex-wrap items-center gap-2">
                         <RepositorySheet
                             repositories={repositories}
-                            discoverRoot={discoverRoot}
                             discoverRoots={discoverRoots}
+                        />
+                        <TeamworkSheet
+                            repositories={repositories}
+                            projects={teamworkProjects}
+                            discoverRoots={discoverRoots}
+                            configured={teamworkConfigured}
+                            error={teamworkError}
                         />
                         <SettingsSheet settings={settings} />
                     </div>
@@ -171,8 +180,9 @@ export default function Timesheet({
                             </EmptyMedia>
                             <EmptyTitle>No repositories yet</EmptyTitle>
                             <EmptyDescription>
-                                Scan your Herd folder and this page will list
-                                what you committed in the interval you pick.
+                                Scan the configured folders and this page will
+                                list what you committed in the interval you
+                                pick.
                             </EmptyDescription>
                         </EmptyHeader>
                         <EmptyContent>
@@ -180,12 +190,12 @@ export default function Timesheet({
                                 onClick={() =>
                                     router.post(
                                         '/repositories/scan',
-                                        { directory: discoverRoot },
+                                        {},
                                         { preserveScroll: true },
                                     )
                                 }
                             >
-                                Scan {discoverRoot}
+                                Scan folders
                             </Button>
                         </EmptyContent>
                     </Empty>

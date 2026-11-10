@@ -1,14 +1,14 @@
 import { router, usePage } from '@inertiajs/react';
-import { FolderPlusIcon, FolderSearchIcon } from 'lucide-react';
+import { FolderSearchIcon, SearchIcon, TrashIcon } from 'lucide-react';
 import { useState } from 'react';
+import { FolderMark, folderMark } from '@/components/timesheet/folder-mark';
 import { Button } from '@/components/ui/button';
+import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import {
-    Field,
-    FieldError,
-    FieldGroup,
-    FieldLabel,
-} from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+    InputGroup,
+    InputGroupAddon,
+    InputGroupInput,
+} from '@/components/ui/input-group';
 import {
     Sheet,
     SheetContent,
@@ -23,24 +23,34 @@ import type { RepositoryRecord } from '@/types/timesheet';
 
 export function RepositorySheet({
     repositories,
-    discoverRoot,
     discoverRoots,
 }: {
     repositories: RepositoryRecord[];
-    discoverRoot: string;
     discoverRoots: string[];
 }) {
     const errors = usePage().props.errors as Record<string, string | undefined>;
-    const [directory, setDirectory] = useState(discoverRoot);
-    const [path, setPath] = useState('');
+    const [query, setQuery] = useState('');
     const [scanning, setScanning] = useState(false);
     const enabled = repositories.filter((repository) => repository.enabled);
+    const needle = query.trim().toLowerCase();
+    const visible = repositories.filter((repository) => {
+        if (needle === '') {
+            return true;
+        }
 
-    function scan(folder: string) {
-        setDirectory(folder);
+        const mark = folderMark(repository.path, discoverRoots);
+
+        return (
+            repository.name.toLowerCase().includes(needle) ||
+            repository.path.toLowerCase().includes(needle) ||
+            (mark?.label.toLowerCase().includes(needle) ?? false)
+        );
+    });
+
+    function scan() {
         router.post(
             '/repositories/scan',
-            { directory: folder },
+            {},
             {
                 preserveScroll: true,
                 preserveState: true,
@@ -53,64 +63,49 @@ export function RepositorySheet({
     return (
         <Sheet>
             <SheetTrigger render={<Button variant="outline" />}>
-                <FolderPlusIcon data-icon="inline-start" />
+                <FolderSearchIcon data-icon="inline-start" />
                 Repositories
                 <span className="text-muted-foreground">
                     {enabled.length}/{repositories.length}
                 </span>
             </SheetTrigger>
             <SheetContent>
-                <SheetHeader>
+                <SheetHeader className="pb-0">
                     <SheetTitle>Repositories</SheetTitle>
                     <SheetDescription>
                         Commits are read from the Git projects you leave on.
-                        Scan a folder to pick up every repo inside it.
+                        Scan checks every configured folder.
                     </SheetDescription>
                 </SheetHeader>
                 <div className="flex flex-col gap-4 px-4">
-                    <FieldGroup>
+                    <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted p-4">
+                        <p className="text-sm font-medium">Scan folders</p>
+                        {discoverRoots.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">
+                                No scan folders are configured.
+                            </p>
+                        ) : (
+                            <ul className="flex flex-col gap-1.5">
+                                {discoverRoots.map((root) => (
+                                    <li key={root}>
+                                        <FolderMark
+                                            path={root}
+                                            roots={discoverRoots}
+                                        />
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
                         <Field
                             data-invalid={errors.directory ? true : undefined}
+                            className="mt-2"
                         >
-                            <FieldLabel htmlFor="scan-directory">
-                                Scan folder
-                            </FieldLabel>
-                            <Input
-                                id="scan-directory"
-                                value={directory}
-                                aria-invalid={
-                                    errors.directory ? true : undefined
-                                }
-                                onChange={(event) =>
-                                    setDirectory(event.target.value)
-                                }
-                            />
-                            <FieldError
-                                errors={
-                                    errors.directory
-                                        ? [{ message: errors.directory }]
-                                        : undefined
-                                }
-                            />
-                            <div className="flex flex-wrap gap-2">
-                                {discoverRoots.map((root) => (
-                                    <Button
-                                        key={root}
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        disabled={scanning}
-                                        onClick={() => scan(root)}
-                                    >
-                                        <FolderSearchIcon data-icon="inline-start" />
-                                        {root.split('/').filter(Boolean).at(-1)}
-                                    </Button>
-                                ))}
-                            </div>
                             <Button
                                 type="button"
-                                disabled={scanning}
-                                onClick={() => scan(directory)}
+                                disabled={
+                                    scanning || discoverRoots.length === 0
+                                }
+                                onClick={scan}
                             >
                                 {scanning ? (
                                     <Spinner data-icon="inline-start" />
@@ -119,50 +114,42 @@ export function RepositorySheet({
                                 )}
                                 Scan
                             </Button>
-                        </Field>
-                        <Field data-invalid={errors.path ? true : undefined}>
-                            <FieldLabel htmlFor="repository-path">
-                                Add one repository
-                            </FieldLabel>
-                            <Input
-                                id="repository-path"
-                                value={path}
-                                placeholder="/Users/you/code/client"
-                                aria-invalid={errors.path ? true : undefined}
-                                onChange={(event) =>
-                                    setPath(event.target.value)
-                                }
-                            />
                             <FieldError
                                 errors={
-                                    errors.path
-                                        ? [{ message: errors.path }]
+                                    errors.directory
+                                        ? [{ message: errors.directory }]
                                         : undefined
                                 }
                             />
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                onClick={() => {
-                                    router.post(
-                                        '/repositories',
-                                        { path },
-                                        {
-                                            preserveScroll: true,
-                                            preserveState: true,
-                                            onSuccess: () => setPath(''),
-                                        },
-                                    );
-                                }}
-                            >
-                                <FolderPlusIcon data-icon="inline-start" />
-                                Add
-                            </Button>
                         </Field>
-                    </FieldGroup>
+                    </div>
+                    <Field>
+                        <FieldLabel htmlFor="repository-search">
+                            Search repositories
+                        </FieldLabel>
+                        <InputGroup>
+                            <InputGroupAddon>
+                                <SearchIcon />
+                            </InputGroupAddon>
+                            <InputGroupInput
+                                id="repository-search"
+                                type="search"
+                                value={query}
+                                placeholder="Name or path"
+                                onChange={(event) =>
+                                    setQuery(event.target.value)
+                                }
+                            />
+                        </InputGroup>
+                    </Field>
                 </div>
                 <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 pb-4">
-                    {repositories.map((repository) => (
+                    {visible.length === 0 && (
+                        <p className="text-sm text-muted-foreground">
+                            No repositories match.
+                        </p>
+                    )}
+                    {visible.map((repository) => (
                         <div
                             key={repository.id}
                             className="flex items-center gap-3 rounded-lg border px-3 py-2"
@@ -185,12 +172,13 @@ export function RepositorySheet({
                                 <div className="truncate font-medium">
                                     {repository.name}
                                 </div>
-                                <div className="truncate text-muted-foreground">
-                                    {repository.path}
-                                </div>
+                                <FolderMark
+                                    path={repository.path}
+                                    roots={discoverRoots}
+                                />
                             </div>
                             <Button
-                                variant="ghost"
+                                variant="secondary"
                                 size="sm"
                                 onClick={() => {
                                     router.delete(
@@ -202,7 +190,7 @@ export function RepositorySheet({
                                     );
                                 }}
                             >
-                                Remove
+                                <TrashIcon data-icon="inline-start" />
                             </Button>
                         </div>
                     ))}

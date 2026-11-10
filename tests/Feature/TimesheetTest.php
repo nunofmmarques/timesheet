@@ -2,6 +2,7 @@
 
 use App\Models\Repository;
 use App\Models\TimesheetSetting;
+use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
 use Symfony\Component\Process\Process;
 
@@ -106,11 +107,84 @@ test('the timesheet shows commits from the selected author', function () {
     }
 });
 
-test('adding a folder that is not a repository is rejected', function () {
-    $this->from('/')
-        ->post('/repositories', ['path' => storage_path('framework')])
-        ->assertRedirect('/')
-        ->assertSessionHasErrors('path');
+test('a repository can be linked to a teamwork project', function () {
+    config([
+        'timesheet.teamwork.url' => 'https://quiteamind.teamwork.com',
+        'timesheet.teamwork.token' => 'test-token',
+    ]);
+
+    Http::fake([
+        'https://quiteamind.teamwork.com/projects/api/v3/projects.json*' => Http::sequence()
+            ->push([
+                'projects' => [
+                    ['id' => 10, 'name' => 'Fabula'],
+                ],
+                'meta' => ['page' => ['hasMore' => true]],
+            ])
+            ->push([
+                'projects' => [
+                    ['id' => 11, 'name' => 'Goals'],
+                ],
+                'meta' => ['page' => ['hasMore' => false]],
+            ]),
+    ]);
+
+    $repository = Repository::query()->create([
+        'name' => 'fabula',
+        'path' => storage_path('framework'),
+        'enabled' => true,
+    ]);
+
+    $this->patch('/repositories/'.$repository->id, [
+        'teamwork_project_id' => 11,
+    ])->assertRedirect();
+
+    $repository->refresh();
+
+    expect($repository->teamwork_project_id)->toBe(11)
+        ->and($repository->teamwork_project_name)->toBe('Goals');
+
+    $this->get('/')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('teamworkConfigured', true)
+            ->where('teamworkError', null)
+            ->where('teamworkProjects.0.name', 'Fabula')
+            ->where('teamworkProjects.1.name', 'Goals')
+            ->where('repositories.0.teamworkProjectId', 11)
+            ->where('repositories.0.teamworkProjectUrl', 'https://quiteamind.teamwork.com/app/projects/11/overview'));
+
+    $this->patch('/repositories/'.$repository->id, [
+        'teamwork_project_id' => null,
+    ])->assertRedirect();
+
+    expect($repository->fresh()?->teamwork_project_id)->toBeNull();
+});
+
+test('an unknown teamwork project is rejected', function () {
+    config([
+        'timesheet.teamwork.url' => 'https://quiteamind.teamwork.com',
+        'timesheet.teamwork.token' => 'test-token',
+    ]);
+
+    Http::fake([
+        'https://quiteamind.teamwork.com/projects/api/v3/projects.json*' => Http::response([
+            'projects' => [
+                ['id' => 10, 'name' => 'Fabula'],
+            ],
+            'meta' => ['page' => ['hasMore' => false]],
+        ]),
+    ]);
+
+    $repository = Repository::query()->create([
+        'name' => 'fabula',
+        'path' => storage_path('framework'),
+        'enabled' => true,
+    ]);
+
+    $this->patch('/repositories/'.$repository->id, [
+        'teamwork_project_id' => 99,
+    ])->assertSessionHasErrors('teamwork_project_id');
 });
 
 test('previous month covers the whole previous calendar month', function () {

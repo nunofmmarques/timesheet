@@ -32,4 +32,19 @@ return [
         ),
     ], fn (mixed $path): bool => is_string($path) && $path !== '')),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Teamwork
+    |--------------------------------------------------------------------------
+    |
+    | Personal API access for linking a Git repository to a Teamwork project.
+    | The token stays in the environment and is never sent to the browser.
+    |
+    */
+
+    'teamwork' => [
+        'url' => rtrim((string) env('TEAMWORK_URL', ''), '/'),
+        'token' => (string) env('TEAMWORK_TOKEN', ''),
+    ],
+
 ];
