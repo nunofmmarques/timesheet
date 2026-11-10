@@ -6,24 +6,33 @@ export type TimesheetCommit = {
     authorName: string;
 };
 
-export type TimesheetSession = {
-    key: string;
+export type TimesheetProject = {
     repository: string;
     repositoryPath: string;
-    startedAt: string;
-    endedAt: string;
-    estimatedMinutes: number;
     minutes: number;
-    description: string;
-    generatedDescription: string;
-    included: boolean;
+    spentMinutes: number;
     commits: TimesheetCommit[];
+};
+
+export type TimesheetBlock = {
+    repository: string;
+    start: string;
+    end: string;
+    minutes: number;
+};
+
+export type TimesheetWindow = {
+    start: string;
+    end: string;
 };
 
 export type TimesheetDay = {
     date: string;
     label: string;
-    sessions: TimesheetSession[];
+    capacityMinutes: number;
+    windows: TimesheetWindow[];
+    blocks: TimesheetBlock[];
+    projects: TimesheetProject[];
 };
 
 export type RepositoryRecord = {
@@ -35,10 +44,6 @@ export type RepositoryRecord = {
 
 export type TimesheetSettings = {
     authorEmail: string;
-    idleGapMinutes: number;
-    paddingMinutes: number;
-    minimumMinutes: number;
-    roundToMinutes: number;
 };
 
 export type TimesheetProblem = {
@@ -56,11 +61,4 @@ export type TimesheetPageProps = {
     settings: TimesheetSettings;
     discoverRoot: string;
     discoverRoots: string[];
-    commitCount: number;
-};
-
-export type SessionDraft = {
-    minutes: number;
-    description: string;
-    included: boolean;
 };

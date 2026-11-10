@@ -3,12 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Repository;
-use App\Models\TimesheetOverride;
 use App\Models\TimesheetSetting;
-use App\Services\CommitIntervalGrouper;
 use App\Services\GitCommitReader;
 use App\Services\RepositoryCatalog;
-use App\Services\TimesheetInterval;
+use App\Services\WorkdayPlanner;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,7 +22,7 @@ class TimesheetController extends Controller
         Request $request,
         RepositoryCatalog $catalog,
         GitCommitReader $reader,
-        CommitIntervalGrouper $grouper,
+        WorkdayPlanner $planner,
     ): Response {
         set_time_limit(120);
 
@@ -59,13 +57,7 @@ class TimesheetController extends Controller
             }
         }
 
-        $days = $this->applyOverrides($grouper->group($commits, new TimesheetInterval(
-            timezone: $timezone,
-            idleGapMinutes: $setting->idle_gap_minutes,
-            paddingMinutes: $setting->padding_minutes,
-            minimumMinutes: $setting->minimum_minutes,
-            roundToMinutes: $setting->round_to_minutes,
-        )));
+        $days = $planner->plan($commits, $timezone);
 
         $discoverRoots = $catalog->discoverRoots();
 
@@ -83,14 +75,9 @@ class TimesheetController extends Controller
             ])->values(),
             'settings' => [
                 'authorEmail' => $setting->author_email ?? '',
-                'idleGapMinutes' => $setting->idle_gap_minutes,
-                'paddingMinutes' => $setting->padding_minutes,
-                'minimumMinutes' => $setting->minimum_minutes,
-                'roundToMinutes' => $setting->round_to_minutes,
             ],
             'discoverRoot' => $discoverRoots[0] ?? (string) config('timesheet.discover_root'),
             'discoverRoots' => $discoverRoots,
-            'commitCount' => count($commits),
         ]);
     }
 
@@ -98,10 +85,6 @@ class TimesheetController extends Controller
     {
         $data = $request->validate([
             'author_email' => ['nullable', 'email', 'max:255'],
-            'idle_gap_minutes' => ['required', 'integer', 'min:5', 'max:720'],
-            'padding_minutes' => ['required', 'integer', 'min:0', 'max:240'],
-            'minimum_minutes' => ['required', 'integer', 'min:0', 'max:480'],
-            'round_to_minutes' => ['required', 'integer', 'in:1,5,15,30,60'],
         ]);
 
         $setting = TimesheetSetting::query()->first();
@@ -168,73 +151,6 @@ class TimesheetController extends Controller
         $repository->delete();
 
         return back();
-    }
-
-    public function updateEntry(Request $request, string $entryKey): RedirectResponse
-    {
-        $data = $request->validate([
-            'minutes' => ['required', 'integer', 'min:0', 'max:1440'],
-            'description' => ['nullable', 'string', 'max:5000'],
-            'included' => ['required', 'boolean'],
-        ]);
-
-        TimesheetOverride::query()->updateOrCreate(
-            ['entry_key' => $entryKey],
-            $data,
-        );
-
-        return back();
-    }
-
-    /**
-     * @param  list<array{date: string, label: string, sessions: list<array<string, mixed>>}>  $days
-     * @return list<array{date: string, label: string, sessions: list<array<string, mixed>>}>
-     */
-    private function applyOverrides(array $days): array
-    {
-        $keys = [];
-
-        foreach ($days as $day) {
-            foreach ($day['sessions'] as $session) {
-                if (is_string($session['key'] ?? null)) {
-                    $keys[] = $session['key'];
-                }
-            }
-        }
-
-        $overrides = TimesheetOverride::query()
-            ->whereIn('entry_key', $keys)
-            ->get()
-            ->keyBy('entry_key');
-
-        foreach ($days as $dayIndex => $day) {
-            foreach ($day['sessions'] as $sessionIndex => $session) {
-                $key = $session['key'] ?? null;
-
-                if (! is_string($key)) {
-                    continue;
-                }
-
-                $override = $overrides->get($key);
-
-                if (! $override instanceof TimesheetOverride) {
-                    continue;
-                }
-
-                if ($override->minutes !== null) {
-                    $session['minutes'] = $override->minutes;
-                }
-
-                if ($override->description !== null) {
-                    $session['description'] = $override->description;
-                }
-
-                $session['included'] = $override->included;
-                $days[$dayIndex]['sessions'][$sessionIndex] = $session;
-            }
-        }
-
-        return $days;
     }
 
     /**

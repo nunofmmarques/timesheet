@@ -94,11 +94,13 @@ test('the timesheet shows commits from the selected author', function () {
             ->assertInertia(fn (Assert $page) => $page
                 ->component('timesheet')
                 ->has('days', 1)
-                ->has('days.0.sessions', 1)
-                ->has('days.0.sessions.0.commits', 1)
-                ->where('days.0.sessions.0.commits.0.subject', 'Log the homepage')
-                ->where('days.0.sessions.0.minutes', 30)
-                ->where('days.0.sessions.0.repository', 'notes'));
+                ->has('days.0.projects', 1)
+                ->has('days.0.projects.0.commits', 1)
+                ->where('days.0.projects.0.commits.0.subject', 'Log the homepage')
+                ->where('days.0.projects.0.repository', 'notes')
+                ->where('days.0.capacityMinutes', 480)
+                ->where('days.0.blocks.0.start', '09:00')
+                ->where('days.0.blocks.1.end', '18:00'));
     } finally {
         deleteDirectory($path);
     }

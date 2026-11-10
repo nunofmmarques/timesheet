@@ -1,22 +1,12 @@
-import { Head, router, usePage } from "@inertiajs/react";
-import {
-    CopyIcon,
-    GitCommitHorizontalIcon,
-    TriangleAlertIcon,
-} from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
-import { RepositorySheet } from "@/components/timesheet/repository-sheet";
-import { SessionCard } from "@/components/timesheet/session-card";
-import { SettingsSheet } from "@/components/timesheet/settings-sheet";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import {
-    Card,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
+import { Head, router, usePage } from '@inertiajs/react';
+import { GitCommitHorizontalIcon, TriangleAlertIcon } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { toast } from 'sonner';
+import { DaySection } from '@/components/timesheet/day-section';
+import { RepositorySheet } from '@/components/timesheet/repository-sheet';
+import { SettingsSheet } from '@/components/timesheet/settings-sheet';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import {
     Empty,
     EmptyContent,
@@ -24,21 +14,19 @@ import {
     EmptyHeader,
     EmptyMedia,
     EmptyTitle,
-} from "@/components/ui/empty";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { Toaster } from "@/components/ui/sonner";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { buildDrafts, formatDays, formatDuration } from "@/lib/timesheet";
-import type { SessionDraft, TimesheetPageProps } from "@/types/timesheet";
+} from '@/components/ui/empty';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Toaster } from '@/components/ui/sonner';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import type { TimesheetPageProps } from '@/types/timesheet';
 
 const presets = [
-    { value: "today", label: "Today" },
-    { value: "week", label: "This week" },
-    { value: "last-week", label: "Last week" },
-    { value: "month", label: "This month" },
-    { value: "last-month", label: "Previous month" },
+    { value: 'today', label: 'Today' },
+    { value: 'week', label: 'This week' },
+    { value: 'last-week', label: 'Last week' },
+    { value: 'month', label: 'This month' },
+    { value: 'last-month', label: 'Previous month' },
 ];
 
 export default function Timesheet({
@@ -51,25 +39,13 @@ export default function Timesheet({
     settings,
     discoverRoot,
     discoverRoots,
-    commitCount,
 }: TimesheetPageProps) {
     const page = usePage().props;
     const flash = page.flash as { status?: string | null } | undefined;
-    const snapshot = JSON.stringify(days);
-    const [stored, setStored] = useState(() => ({
-        snapshot,
-        drafts: buildDrafts(days),
-    }));
     const toasted = useRef<string | null>(null);
 
-    if (stored.snapshot !== snapshot) {
-        setStored({ snapshot, drafts: buildDrafts(days) });
-    }
-
-    const drafts = stored.drafts;
-
     useEffect(() => {
-        if (typeof flash?.status !== "string" || flash.status === "") {
+        if (typeof flash?.status !== 'string' || flash.status === '') {
             return;
         }
 
@@ -81,74 +57,12 @@ export default function Timesheet({
         toast.success(flash.status);
     }, [flash?.status]);
 
-    const totals = useMemo(() => {
-        let minutes = 0;
-        let entries = 0;
-
-        for (const day of days) {
-            for (const session of day.sessions) {
-                const draft = drafts[session.key];
-
-                if (!draft?.included) {
-                    continue;
-                }
-
-                minutes += draft.minutes;
-                entries += 1;
-            }
-        }
-
-        return { minutes, entries };
-    }, [days, drafts]);
-
-    function updateDraft(key: string, draft: SessionDraft) {
-        setStored((current) => ({
-            ...current,
-            drafts: { ...current.drafts, [key]: draft },
-        }));
-    }
-
     function visit(query: Record<string, string>) {
-        router.get("/", query, { preserveScroll: true });
-    }
-
-    async function copyAll() {
-        const text = formatDays(days, drafts);
-
-        if (text.trim() === "") {
-            toast.error("Nothing is included for this interval.");
-            return;
-        }
-
-        try {
-            await navigator.clipboard.writeText(text);
-            toast.success("Copied the timesheet");
-        } catch {
-            toast.error("Could not copy the timesheet.");
-        }
-    }
-
-    async function copyDay(label: string, date: string) {
-        const text = formatDays(
-            days.filter((day) => day.date === date),
-            drafts,
-        );
-
-        if (text.trim() === "") {
-            toast.error(`Nothing included on ${label}.`);
-            return;
-        }
-
-        try {
-            await navigator.clipboard.writeText(text);
-            toast.success(`Copied ${label}`);
-        } catch {
-            toast.error("Could not copy that day.");
-        }
+        router.get('/', query, { preserveScroll: true });
     }
 
     return (
-        <TooltipProvider>
+        <>
             <Head title="Timesheet" />
             <Toaster />
             <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8">
@@ -158,9 +72,9 @@ export default function Timesheet({
                             Timesheet
                         </h1>
                         <p className="text-sm text-muted-foreground">
-                            Git commits from your projects, grouped into work
-                            intervals so you can edit the hours and paste them
-                            into your timesheet.
+                            Projects and commits for each day, with the working
+                            day split across them. Monday to Thursday is
+                            9:00–13:00 and 14:00–18:00. Friday is 9:00–13:00.
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -170,19 +84,15 @@ export default function Timesheet({
                             discoverRoots={discoverRoots}
                         />
                         <SettingsSheet settings={settings} />
-                        <Button onClick={copyAll}>
-                            <CopyIcon data-icon="inline-start" />
-                            Copy all
-                        </Button>
                     </div>
                 </header>
 
-                <div className="flex flex-wrap items-center gap-3 justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                     <ToggleGroup
                         variant="outline"
                         size="sm"
                         spacing={0}
-                        value={preset === "custom" ? [] : [preset]}
+                        value={preset === 'custom' ? [] : [preset]}
                         onValueChange={(value) => {
                             const next = value.at(-1);
 
@@ -200,7 +110,7 @@ export default function Timesheet({
                             </ToggleGroupItem>
                         ))}
                     </ToggleGroup>
-                    <div className="w-auto flex flex-row items-center gap-3">
+                    <div className="flex w-auto flex-row items-center gap-3">
                         <Field orientation="horizontal" className="w-auto">
                             <FieldLabel htmlFor="from">From</FieldLabel>
                             <Input
@@ -210,7 +120,7 @@ export default function Timesheet({
                                 value={from}
                                 onChange={(event) =>
                                     visit({
-                                        preset: "custom",
+                                        preset: 'custom',
                                         from: event.target.value,
                                         to,
                                     })
@@ -226,7 +136,7 @@ export default function Timesheet({
                                 value={to}
                                 onChange={(event) =>
                                     visit({
-                                        preset: "custom",
+                                        preset: 'custom',
                                         from,
                                         to: event.target.value,
                                     })
@@ -234,29 +144,6 @@ export default function Timesheet({
                             />
                         </Field>
                     </div>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-3">
-                    <Card size="sm">
-                        <CardHeader>
-                            <CardDescription>Hours to log</CardDescription>
-                            <CardTitle>
-                                {formatDuration(totals.minutes)}
-                            </CardTitle>
-                        </CardHeader>
-                    </Card>
-                    <Card size="sm">
-                        <CardHeader>
-                            <CardDescription>Entries</CardDescription>
-                            <CardTitle>{totals.entries}</CardTitle>
-                        </CardHeader>
-                    </Card>
-                    <Card size="sm">
-                        <CardHeader>
-                            <CardDescription>Commits</CardDescription>
-                            <CardTitle>{commitCount}</CardTitle>
-                        </CardHeader>
-                    </Card>
                 </div>
 
                 {problems.length > 0 && (
@@ -271,7 +158,7 @@ export default function Timesheet({
                                     (problem) =>
                                         `${problem.repository}: ${problem.message}`,
                                 )
-                                .join(" ")}
+                                .join(' ')}
                         </AlertDescription>
                     </Alert>
                 )}
@@ -292,7 +179,7 @@ export default function Timesheet({
                             <Button
                                 onClick={() =>
                                     router.post(
-                                        "/repositories/scan",
+                                        '/repositories/scan',
                                         { directory: discoverRoot },
                                         { preserveScroll: true },
                                     )
@@ -314,9 +201,9 @@ export default function Timesheet({
                             <EmptyDescription>
                                 {settings.authorEmail
                                     ? `Nothing from ${settings.authorEmail} between ${from} and ${to}.`
-                                    : `Nothing between ${from} and ${to}.`}{" "}
+                                    : `Nothing between ${from} and ${to}.`}{' '}
                                 Widen the dates, or clear the author filter in
-                                Interval.
+                                Author.
                             </EmptyDescription>
                         </EmptyHeader>
                     </Empty>
@@ -324,50 +211,10 @@ export default function Timesheet({
 
                 <div className="flex flex-col gap-8">
                     {days.map((day) => (
-                        <section key={day.date} className="flex flex-col gap-3">
-                            <div className="flex items-center justify-between gap-3">
-                                <div className="flex flex-col gap-0.5">
-                                    <h2 className="font-heading text-base font-medium">
-                                        {day.label}
-                                    </h2>
-                                    <p className="text-sm text-muted-foreground">
-                                        {formatDuration(
-                                            day.sessions.reduce(
-                                                (total, session) =>
-                                                    drafts[session.key]
-                                                        ?.included
-                                                        ? total +
-                                                          (drafts[session.key]
-                                                              ?.minutes ?? 0)
-                                                        : total,
-                                                0,
-                                            ),
-                                        )}
-                                    </p>
-                                </div>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => copyDay(day.label, day.date)}
-                                >
-                                    <CopyIcon data-icon="inline-start" />
-                                    Copy day
-                                </Button>
-                            </div>
-                            <div className="flex flex-col gap-3">
-                                {day.sessions.map((session) => (
-                                    <SessionCard
-                                        key={`${session.key}:${session.minutes}:${session.description}:${session.included}`}
-                                        dayLabel={day.label}
-                                        session={session}
-                                        onDraft={updateDraft}
-                                    />
-                                ))}
-                            </div>
-                        </section>
+                        <DaySection key={day.date} day={day} />
                     ))}
                 </div>
             </main>
-        </TooltipProvider>
+        </>
     );
 }
