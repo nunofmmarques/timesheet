@@ -7,6 +7,7 @@ use App\Models\TimesheetSetting;
 use App\Services\GitCommitReader;
 use App\Services\RepositoryCatalog;
 use App\Services\TeamworkProjects;
+use App\Services\TeamworkTimelogs;
 use App\Services\WorkdayPlanner;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -25,6 +26,7 @@ class TimesheetController extends Controller
         GitCommitReader $reader,
         WorkdayPlanner $planner,
         TeamworkProjects $teamwork,
+        TeamworkTimelogs $timelogs,
     ): Response {
         set_time_limit(120);
 
@@ -60,6 +62,8 @@ class TimesheetController extends Controller
         }
 
         $days = $planner->plan($commits, $timezone);
+        $loggedTime = $this->loggedTime($timelogs, $from, $to, $timezone);
+        $days = $this->attachLoggedTime($days, $loggedTime['entries'], $planner, $timezone);
 
         $discoverRoots = $catalog->discoverRoots();
         $teamworkProjects = $this->teamworkProjects($teamwork);
@@ -81,6 +85,7 @@ class TimesheetController extends Controller
             ])->values(),
             'teamworkProjects' => $teamworkProjects['projects'],
             'teamworkError' => $teamworkProjects['error'],
+            'teamworkTimeError' => $loggedTime['error'],
             'teamworkConfigured' => $teamwork->configured(),
             'settings' => [
                 'authorEmail' => $setting->author_email ?? '',
@@ -173,6 +178,81 @@ class TimesheetController extends Controller
         $repository->delete();
 
         return back();
+    }
+
+    /**
+     * @param  list<array{
+     *     date: string,
+     *     label: string,
+     *     capacityMinutes: int,
+     *     windows: list<array{start: string, end: string}>,
+     *     blocks: list<array{repository: string, start: string, end: string, minutes: int}>,
+     *     projects: list<array<string, mixed>>
+     * }>  $days
+     * @param  list<array{
+     *     id: int,
+     *     date: string,
+     *     time: string|null,
+     *     minutes: int,
+     *     description: string,
+     *     project: string,
+     *     task: string,
+     *     projectUrl: string|null
+     * }>  $entries
+     * @return list<array<string, mixed>>
+     */
+    private function attachLoggedTime(array $days, array $entries, WorkdayPlanner $planner, string $timezone): array
+    {
+        $byDate = [];
+
+        foreach ($days as $day) {
+            $byDate[$day['date']] = $day;
+        }
+
+        $grouped = [];
+
+        foreach ($entries as $entry) {
+            $grouped[$entry['date']][] = $entry;
+
+            if (! isset($byDate[$entry['date']])) {
+                $byDate[$entry['date']] = $planner->blankDay($entry['date'], $timezone);
+            }
+        }
+
+        krsort($byDate);
+
+        $result = [];
+
+        foreach ($byDate as $date => $day) {
+            $logs = $grouped[$date] ?? [];
+            $day['logged'] = array_map(fn (array $log): array => [
+                'id' => $log['id'],
+                'time' => $log['time'],
+                'minutes' => $log['minutes'],
+                'description' => $log['description'],
+                'project' => $log['project'],
+                'task' => $log['task'],
+                'projectUrl' => $log['projectUrl'],
+            ], $logs);
+            $day['loggedMinutes'] = array_sum(array_column($logs, 'minutes'));
+            $result[] = $day;
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array{entries: list<array<string, mixed>>, error: string|null}
+     */
+    private function loggedTime(TeamworkTimelogs $timelogs, string $from, string $to, string $timezone): array
+    {
+        try {
+            return ['entries' => $timelogs->between($from, $to, $timezone), 'error' => null];
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return ['entries' => [], 'error' => 'Teamwork time could not be loaded.'];
+        }
     }
 
     /**

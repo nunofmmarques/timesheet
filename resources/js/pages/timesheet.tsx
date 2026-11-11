@@ -3,6 +3,7 @@ import { GitCommitHorizontalIcon, TriangleAlertIcon } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { DaySection } from '@/components/timesheet/day-section';
+import { RangePicker } from '@/components/timesheet/range-picker';
 import { RepositorySheet } from '@/components/timesheet/repository-sheet';
 import { SettingsSheet } from '@/components/timesheet/settings-sheet';
 import { TeamworkSheet } from '@/components/timesheet/teamwork-sheet';
@@ -16,19 +17,8 @@ import {
     EmptyMedia,
     EmptyTitle,
 } from '@/components/ui/empty';
-import { Field, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
 import { Toaster } from '@/components/ui/sonner';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import type { TimesheetPageProps } from '@/types/timesheet';
-
-const presets = [
-    { value: 'today', label: 'Today' },
-    { value: 'week', label: 'This week' },
-    { value: 'last-week', label: 'Last week' },
-    { value: 'month', label: 'This month' },
-    { value: 'last-month', label: 'Previous month' },
-];
 
 export default function Timesheet({
     from,
@@ -39,6 +29,7 @@ export default function Timesheet({
     repositories,
     teamworkProjects,
     teamworkError,
+    teamworkTimeError,
     teamworkConfigured,
     settings,
     discoverRoots,
@@ -69,7 +60,7 @@ export default function Timesheet({
             <Head title="Timesheet" />
             <Toaster />
             <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8">
-                <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <header className="flex flex-col gap-4">
                     <div className="flex max-w-xl flex-col gap-1">
                         <h1 className="font-heading text-2xl font-medium tracking-tight">
                             Timesheet
@@ -80,80 +71,37 @@ export default function Timesheet({
                             9:00–13:00 and 14:00–18:00. Friday is 9:00–13:00.
                         </p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <RepositorySheet
-                            repositories={repositories}
-                            discoverRoots={discoverRoots}
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <RangePicker
+                            from={from}
+                            to={to}
+                            preset={preset}
+                            onChange={visit}
                         />
-                        <TeamworkSheet
-                            repositories={repositories}
-                            projects={teamworkProjects}
-                            discoverRoots={discoverRoots}
-                            configured={teamworkConfigured}
-                            error={teamworkError}
-                        />
-                        <SettingsSheet settings={settings} />
+                        <div className="flex flex-wrap items-center gap-2">
+                            <RepositorySheet
+                                repositories={repositories}
+                                discoverRoots={discoverRoots}
+                            />
+                            <TeamworkSheet
+                                repositories={repositories}
+                                projects={teamworkProjects}
+                                discoverRoots={discoverRoots}
+                                configured={teamworkConfigured}
+                                error={teamworkError}
+                            />
+                            <SettingsSheet settings={settings} />
+                        </div>
                     </div>
                 </header>
 
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <ToggleGroup
-                        variant="outline"
-                        size="sm"
-                        spacing={0}
-                        value={preset === 'custom' ? [] : [preset]}
-                        onValueChange={(value) => {
-                            const next = value.at(-1);
-
-                            if (next) {
-                                visit({ preset: next });
-                            }
-                        }}
-                    >
-                        {presets.map((item) => (
-                            <ToggleGroupItem
-                                key={item.value}
-                                value={item.value}
-                            >
-                                {item.label}
-                            </ToggleGroupItem>
-                        ))}
-                    </ToggleGroup>
-                    <div className="flex w-auto flex-row items-center gap-3">
-                        <Field orientation="horizontal" className="w-auto">
-                            <FieldLabel htmlFor="from">From</FieldLabel>
-                            <Input
-                                id="from"
-                                className="w-40"
-                                type="date"
-                                value={from}
-                                onChange={(event) =>
-                                    visit({
-                                        preset: 'custom',
-                                        from: event.target.value,
-                                        to,
-                                    })
-                                }
-                            />
-                        </Field>
-                        <Field orientation="horizontal" className="w-auto">
-                            <FieldLabel htmlFor="to">To</FieldLabel>
-                            <Input
-                                id="to"
-                                className="w-40"
-                                type="date"
-                                value={to}
-                                onChange={(event) =>
-                                    visit({
-                                        preset: 'custom',
-                                        from,
-                                        to: event.target.value,
-                                    })
-                                }
-                            />
-                        </Field>
-                    </div>
-                </div>
+                {teamworkTimeError !== null && (
+                    <Alert>
+                        <TriangleAlertIcon />
+                        <AlertTitle>Teamwork time could not be loaded</AlertTitle>
+                        <AlertDescription>{teamworkTimeError}</AlertDescription>
+                    </Alert>
+                )}
 
                 {problems.length > 0 && (
                     <Alert>

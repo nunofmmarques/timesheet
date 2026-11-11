@@ -77,6 +77,33 @@ class WorkdayPlanner
     }
 
     /**
+     * A day in the range that has Teamwork time but no commits.
+     *
+     * @return array{
+     *     date: string,
+     *     label: string,
+     *     capacityMinutes: int,
+     *     windows: list<array{start: string, end: string}>,
+     *     blocks: list<empty>,
+     *     projects: list<empty>
+     * }
+     */
+    public function blankDay(string $date, string $timezone): array
+    {
+        $day = CarbonImmutable::parse($date, $timezone)->startOfDay();
+        $schedule = $this->schedule($day);
+
+        return [
+            'date' => $date,
+            'label' => $day->format('D j M'),
+            'capacityMinutes' => $schedule['capacityMinutes'],
+            'windows' => $schedule['windows'],
+            'blocks' => [],
+            'projects' => [],
+        ];
+    }
+
+    /**
      * @return array{capacityMinutes: int, windows: list<array{start: string, end: string}>}
      */
     private function schedule(CarbonImmutable $day): array

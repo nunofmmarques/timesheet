@@ -26,6 +26,16 @@ export type TimesheetWindow = {
     end: string;
 };
 
+export type TimesheetLog = {
+    id: number;
+    time: string | null;
+    minutes: number;
+    description: string;
+    project: string;
+    task: string;
+    projectUrl: string | null;
+};
+
 export type TimesheetDay = {
     date: string;
     label: string;
@@ -33,6 +43,8 @@ export type TimesheetDay = {
     windows: TimesheetWindow[];
     blocks: TimesheetBlock[];
     projects: TimesheetProject[];
+    loggedMinutes: number;
+    logged: TimesheetLog[];
 };
 
 export type RepositoryRecord = {
@@ -68,6 +80,7 @@ export type TimesheetPageProps = {
     repositories: RepositoryRecord[];
     teamworkProjects: TeamworkProject[];
     teamworkError: string | null;
+    teamworkTimeError: string | null;
     teamworkConfigured: boolean;
     settings: TimesheetSettings;
     discoverRoot: string;
