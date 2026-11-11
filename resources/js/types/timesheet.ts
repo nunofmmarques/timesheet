@@ -4,6 +4,7 @@ export type TimesheetCommit = {
     subject: string;
     time: string;
     authorName: string;
+    branch: string;
 };
 
 export type TimesheetProject = {

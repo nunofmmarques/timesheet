@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -85,6 +86,27 @@ class TeamworkTimelogs
         return $entries;
     }
 
+    public function create(int $taskId, string $date, string $time, int $minutes, bool $billable): void
+    {
+        $timelog = [
+            'date' => $date,
+            'time' => $time,
+            'minutes' => $minutes,
+            'isBillable' => $billable,
+        ];
+
+        $response = Http::withBasicAuth($this->token(), 'x')
+            ->acceptJson()
+            ->timeout(20)
+            ->post($this->url().'/projects/api/v3/tasks/'.$taskId.'/time.json', [
+                'timelog' => $timelog,
+            ]);
+
+        if ($response->failed()) {
+            throw new RuntimeException($this->failure($response));
+        }
+    }
+
     /**
      * @param  array<mixed>  $log
      * @param  array<array-key, mixed>  $projects
@@ -164,6 +186,21 @@ class TeamworkTimelogs
         });
 
         return is_int($id) ? $id : (int) $id;
+    }
+
+    private function failure(Response $response): string
+    {
+        $errors = $response->json('errors');
+
+        if (is_array($errors)) {
+            foreach ($errors as $error) {
+                if (is_array($error) && is_string($error['detail'] ?? null) && $error['detail'] !== '') {
+                    return $error['detail'];
+                }
+            }
+        }
+
+        return 'Teamwork could not log this time.';
     }
 
     private function url(): string

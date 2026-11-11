@@ -14,5 +14,6 @@ final readonly class GitCommit
         public string $subject,
         public string $repository,
         public string $repositoryPath,
+        public string $branch = '',
     ) {}
 }

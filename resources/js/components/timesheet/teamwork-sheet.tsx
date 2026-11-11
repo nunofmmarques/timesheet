@@ -1,8 +1,8 @@
 import { router } from '@inertiajs/react';
 import { ExternalLinkIcon, SearchIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import teamworkLogo from '@/assets/teamwork.png';
 import { FolderMark, folderMark } from '@/components/timesheet/folder-mark';
+import { TeamworkLogo } from '@/components/timesheet/teamwork-logo';
 import { Button } from '@/components/ui/button';
 import {
     Combobox,
@@ -81,12 +81,7 @@ export function TeamworkSheet({
     return (
         <Sheet>
             <SheetTrigger render={<Button variant="outline" />}>
-                <img
-                    src={teamworkLogo}
-                    alt=""
-                    data-icon="inline-start"
-                    className="size-4"
-                />
+                <TeamworkLogo data-icon="inline-start" />
                 Teamwork
                 <span className="text-muted-foreground">
                     {linked}/{repositories.length}

@@ -1,5 +1,14 @@
-import { ChevronDownIcon, GitCommitHorizontalIcon } from "lucide-react";
-import teamworkLogo from "@/assets/teamwork.png";
+import { router } from "@inertiajs/react";
+import {
+    ChevronDownIcon,
+    ClockIcon,
+    GitBranchIcon,
+    GitCommitHorizontalIcon,
+    SearchIcon,
+} from "lucide-react";
+import { useMemo, useState } from "react";
+import { LogTimeDialog } from "@/components/timesheet/log-time-dialog";
+import { TeamworkLogo } from "@/components/timesheet/teamwork-logo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -7,35 +16,88 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Field, FieldLabel } from "@/components/ui/field";
+import {
+    InputGroup,
+    InputGroupAddon,
+    InputGroupInput,
+} from "@/components/ui/input-group";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDuration } from "@/lib/timesheet";
 import type {
+    RepositoryRecord,
+    TeamworkProject,
     TimesheetCommit,
     TimesheetDay,
     TimesheetLog,
     TimesheetProject,
 } from "@/types/timesheet";
 
-export function DaySection({ day }: { day: TimesheetDay }) {
+export function DaySection({
+    day,
+    repositories,
+    projects,
+    teamworkConfigured,
+    teamworkError,
+}: {
+    day: TimesheetDay;
+    repositories: RepositoryRecord[];
+    projects: TeamworkProject[];
+    teamworkConfigured: boolean;
+    teamworkError: string | null;
+}) {
     const rows =
         day.blocks.length > 0
             ? day.blocks.map((block) => {
                   const project = projectFor(day.projects, block.repository);
+                  const repository = repositoryFor(
+                      repositories,
+                      project?.repositoryPath,
+                      block.repository,
+                  );
 
                   return {
                       key: `${block.repository}-${block.start}`,
                       label: block.repository,
                       meta: `${block.start}–${block.end}`,
+                      start: block.start,
+                      end: block.end,
                       minutes: block.minutes,
                       commits: project?.commits ?? [],
+                      branches: branchNames(project?.commits ?? []),
+                      repositoryId: repository?.id ?? null,
+                      teamworkProjectId: repository?.teamworkProjectId ?? null,
+                      teamworkProjectName: repository?.teamworkProjectName ?? null,
                   };
               })
-            : day.projects.map((project) => ({
-                  key: project.repositoryPath,
-                  label: project.repository,
-                  meta: null,
-                  minutes: project.minutes,
-                  commits: project.commits,
-              }));
+            : day.projects.map((project) => {
+                  const repository = repositoryFor(
+                      repositories,
+                      project.repositoryPath,
+                      project.repository,
+                  );
+
+                  return {
+                      key: project.repositoryPath,
+                      label: project.repository,
+                      meta: null,
+                      start: null,
+                      end: null,
+                      minutes: project.minutes,
+                      commits: project.commits,
+                      branches: branchNames(project.commits),
+                      repositoryId: repository?.id ?? null,
+                      teamworkProjectId: repository?.teamworkProjectId ?? null,
+                      teamworkProjectName: repository?.teamworkProjectName ?? null,
+                  };
+              });
 
     const fullDay = day.loggedMinutes >= 8 * 60;
 
@@ -57,52 +119,99 @@ export function DaySection({ day }: { day: TimesheetDay }) {
             <LoggedTime day={day} fullDay={fullDay} />
 
             {rows.length > 0 && (
-                <div className="overflow-hidden rounded-xl bg-muted/50 ring-1 ring-foreground/10">
-                    <div className="flex items-center gap-2 px-3 py-2 text-sm font-medium">
+                <Collapsible
+                    defaultOpen={!fullDay}
+                    className="overflow-hidden rounded-xl bg-muted/50 ring-1 ring-foreground/10"
+                >
+                    <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-sm font-medium">
                         <GitCommitHorizontalIcon className="size-4" />
                         Git
-                    </div>
+                        <ChevronDownIcon className="ml-auto size-4 transition-transform in-aria-expanded:rotate-180" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
                     <div className="flex flex-col divide-y border-t bg-card">
                         {rows.map((row) => (
                             <Collapsible key={row.key}>
-                                <CollapsibleTrigger
-                                    render={
-                                        <Button
-                                            variant="ghost"
-                                            className="h-auto w-full justify-between rounded-none px-3 py-2 font-normal"
-                                        />
-                                    }
-                                >
-                                    <span className="flex min-w-0 flex-1 items-center gap-3 text-left">
-                                        {row.meta !== null && (
-                                            <span className="w-28 shrink-0 text-muted-foreground tabular-nums">
-                                                {row.meta}
-                                            </span>
-                                        )}
-                                        <span className="min-w-0 flex-1 truncate font-medium">
-                                            {row.label}
-                                        </span>
-                                        {row.minutes > 0 && (
-                                            <span className="shrink-0 tabular-nums">
-                                                <span className="text-muted-foreground">
-                                                    to log{" "}
+                                <div className="flex items-center">
+                                    <CollapsibleTrigger
+                                        render={
+                                            <Button
+                                                variant="ghost"
+                                                className="h-auto min-w-0 flex-1 justify-between rounded-none px-3 py-2 font-normal"
+                                            />
+                                        }
+                                    >
+                                        <span className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                                            {row.meta !== null && (
+                                                <span className="w-28 shrink-0 text-muted-foreground tabular-nums">
+                                                    {row.meta}
                                                 </span>
-                                                {formatDuration(row.minutes)}
+                                            )}
+                                            <span className="flex min-w-0 flex-1 items-center gap-2">
+                                                <span className="shrink-0 font-medium">
+                                                    {row.label}
+                                                </span>
+                                                <BranchMark branches={row.branches} />
+                                                {row.teamworkProjectName !==
+                                                    null && (
+                                                    <span className="flex min-w-0 items-center gap-1 text-muted-foreground">
+                                                        <TeamworkLogo
+                                                            variant="mark"
+                                                            className="size-3.5"
+                                                        />
+                                                        <span className="truncate">
+                                                            {
+                                                                row.teamworkProjectName
+                                                            }
+                                                        </span>
+                                                    </span>
+                                                )}
                                             </span>
-                                        )}
-                                    </span>
-                                    <ChevronDownIcon
-                                        data-icon="inline-end"
-                                        className="transition-transform in-aria-expanded:rotate-180"
+                                            {row.minutes > 0 && (
+                                                <span className="shrink-0 tabular-nums">
+                                                    <span className="text-muted-foreground">
+                                                        to log{" "}
+                                                    </span>
+                                                    {formatDuration(row.minutes)}
+                                                </span>
+                                            )}
+                                        </span>
+                                        <ChevronDownIcon
+                                            data-icon="inline-end"
+                                            className="transition-transform in-aria-expanded:rotate-180"
+                                        />
+                                    </CollapsibleTrigger>
+                                    <TeamworkLink
+                                        rowKey={row.key}
+                                        label={row.label}
+                                        date={day.date}
+                                        dateLabel={day.label}
+                                        start={row.start}
+                                        end={row.end}
+                                        minutes={row.minutes}
+                                        commits={row.commits}
+                                        logged={day.logged}
+                                        repositoryId={row.repositoryId}
+                                        projectId={row.teamworkProjectId}
+                                        projectName={row.teamworkProjectName}
+                                        projects={projects}
+                                        canLink={
+                                            teamworkConfigured &&
+                                            teamworkError === null
+                                        }
                                     />
-                                </CollapsibleTrigger>
+                                </div>
                                 <CollapsibleContent className="bg-muted/40 px-3 py-2">
-                                    <CommitList commits={row.commits} />
+                                    <CommitList
+                                        commits={row.commits}
+                                        showBranch={row.branches.length > 1}
+                                    />
                                 </CollapsibleContent>
                             </Collapsible>
                         ))}
                     </div>
-                </div>
+                    </CollapsibleContent>
+                </Collapsible>
             )}
         </section>
     );
@@ -125,7 +234,7 @@ function LoggedTime({ day, fullDay }: { day: TimesheetDay; fullDay: boolean }) {
                 }
             >
                 <p className="flex items-center gap-2 text-sm font-medium">
-                    <img src={teamworkLogo} alt="" className="size-4" />
+                    <TeamworkLogo />
                     Teamwork
                 </p>
                 <p className="text-sm font-medium tabular-nums">
@@ -184,6 +293,189 @@ function LoggedEntry({ entry }: { entry: TimesheetLog }) {
     );
 }
 
+function TeamworkLink({
+    rowKey,
+    label,
+    date,
+    dateLabel,
+    start,
+    end,
+    minutes,
+    commits,
+    logged,
+    repositoryId,
+    projectId,
+    projectName,
+    projects,
+    canLink,
+}: {
+    rowKey: string;
+    label: string;
+    date: string;
+    dateLabel: string;
+    start: string | null;
+    end: string | null;
+    minutes: number;
+    commits: TimesheetCommit[];
+    logged: TimesheetLog[];
+    repositoryId: number | null;
+    projectId: number | null;
+    projectName: string | null;
+    projects: TeamworkProject[];
+    canLink: boolean;
+}) {
+    const [open, setOpen] = useState(false);
+
+    if (projectId === null || projectName === null) {
+        return (
+            <LinkProject
+                repositoryId={repositoryId}
+                repositoryName={label}
+                projects={projects}
+                canLink={canLink}
+            />
+        );
+    }
+
+    return (
+        <div className="flex shrink-0 items-center gap-2 pr-2">
+            <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                aria-label={`Log ${label} on ${projectName}`}
+                onClick={() => setOpen(true)}
+            >
+                <ClockIcon data-icon="inline-start" />
+                Log
+            </Button>
+            <LogTimeDialog
+                open={open}
+                onOpenChange={setOpen}
+                projectId={projectId}
+                projectName={projectName}
+                rowKey={rowKey}
+                date={date}
+                dateLabel={dateLabel}
+                start={start}
+                end={end}
+                minutes={minutes}
+                logged={logged}
+            />
+        </div>
+    );
+}
+
+function LinkProject({
+    repositoryId,
+    repositoryName,
+    projects,
+    canLink,
+}: {
+    repositoryId: number | null;
+    repositoryName: string;
+    projects: TeamworkProject[];
+    canLink: boolean;
+}) {
+    const [open, setOpen] = useState(false);
+    const [query, setQuery] = useState("");
+    const options = useMemo(
+        () =>
+            projects.map((project) => ({
+                value: String(project.id),
+                label: project.name,
+            })),
+        [projects],
+    );
+    const needle = query.trim().toLowerCase();
+    const visible = options.filter((option) =>
+        needle === "" ? true : option.label.toLowerCase().includes(needle),
+    );
+
+    if (!canLink || repositoryId === null) {
+        return (
+            <span className="shrink-0 pr-3 text-sm text-muted-foreground">
+                Not linked
+            </span>
+        );
+    }
+
+    function link(projectId: string) {
+        router.patch(
+            `/repositories/${repositoryId}`,
+            { teamwork_project_id: Number(projectId) },
+            {
+                preserveScroll: true,
+                onSuccess: () => setOpen(false),
+            },
+        );
+    }
+
+    return (
+        <div className="shrink-0 pr-2">
+            <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                aria-label={`Link ${repositoryName} to Teamwork`}
+                onClick={() => {
+                    setQuery("");
+                    setOpen(true);
+                }}
+            >
+                <TeamworkLogo data-icon="inline-start" />
+                Link
+            </Button>
+            <Dialog open={open} onOpenChange={setOpen}>
+                <DialogContent className="sm:max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle>Link {repositoryName}</DialogTitle>
+                        <DialogDescription>
+                            Choose the Teamwork project for this repository.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <Field>
+                        <FieldLabel htmlFor={`link-project-${repositoryId}`}>
+                            Teamwork project
+                        </FieldLabel>
+                        <InputGroup>
+                            <InputGroupAddon>
+                                <SearchIcon />
+                            </InputGroupAddon>
+                            <InputGroupInput
+                                id={`link-project-${repositoryId}`}
+                                value={query}
+                                placeholder="Search projects"
+                                onChange={(event) => setQuery(event.target.value)}
+                            />
+                        </InputGroup>
+                        <ScrollArea className="h-48 rounded-lg border">
+                            {visible.length === 0 && (
+                                <p className="px-3 py-2 text-muted-foreground">
+                                    No projects match.
+                                </p>
+                            )}
+                            <div className="flex flex-col p-1">
+                                {visible.map((option) => (
+                                    <Button
+                                        key={option.value}
+                                        type="button"
+                                        variant="ghost"
+                                        className="h-auto w-full justify-start px-2 py-1.5"
+                                        onClick={() => link(option.value)}
+                                    >
+                                        <span className="truncate">{option.label}</span>
+                                    </Button>
+                                ))}
+                            </div>
+                        </ScrollArea>
+                    </Field>
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
+}
+
 function projectFor(
     projects: TimesheetProject[],
     repository: string,
@@ -191,7 +483,59 @@ function projectFor(
     return projects.find((project) => project.repository === repository);
 }
 
-function CommitList({ commits }: { commits: TimesheetCommit[] }) {
+function repositoryFor(
+    repositories: RepositoryRecord[],
+    path: string | undefined,
+    name: string,
+): RepositoryRecord | undefined {
+    return (
+        repositories.find((repository) => repository.path === path) ??
+        repositories.find((repository) => repository.name === name)
+    );
+}
+
+function BranchMark({ branches }: { branches: string[] }) {
+    if (branches.length > 1) {
+        return (
+            <span
+                className="flex shrink-0 items-center gap-1 text-muted-foreground"
+                aria-label={`${branches.length} branches`}
+            >
+                <GitBranchIcon className="size-3.5" />
+                <Badge variant="secondary">{branches.length}</Badge>
+            </span>
+        );
+    }
+
+    if (branches.length === 1) {
+        return (
+            <span className="flex min-w-0 items-center gap-1 text-muted-foreground">
+                <GitBranchIcon className="size-3.5 shrink-0" />
+                <span className="max-w-36 truncate">{branches[0]}</span>
+            </span>
+        );
+    }
+
+    return null;
+}
+
+function branchNames(commits: TimesheetCommit[]): string[] {
+    return [
+        ...new Set(
+            commits
+                .map((commit) => commit.branch)
+                .filter((branch) => branch !== ""),
+        ),
+    ].sort((left, right) => left.localeCompare(right));
+}
+
+function CommitList({
+    commits,
+    showBranch,
+}: {
+    commits: TimesheetCommit[];
+    showBranch: boolean;
+}) {
     if (commits.length === 0) {
         return <p className="text-sm text-muted-foreground">No commits.</p>;
     }
@@ -203,7 +547,13 @@ function CommitList({ commits }: { commits: TimesheetCommit[] }) {
                     <span className="w-12 shrink-0 text-muted-foreground tabular-nums">
                         {commit.time}
                     </span>
-                    <span className="min-w-0">{commit.subject}</span>
+                    <span className="min-w-0 flex-1">{commit.subject}</span>
+                    {showBranch && commit.branch !== "" && (
+                        <span className="flex max-w-40 shrink-0 items-center gap-1 text-muted-foreground">
+                            <GitBranchIcon className="size-3.5 shrink-0" />
+                            <span className="truncate">{commit.branch}</span>
+                        </span>
+                    )}
                 </li>
             ))}
         </ul>

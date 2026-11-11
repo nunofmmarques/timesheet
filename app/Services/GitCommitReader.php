@@ -35,7 +35,8 @@ class GitCommitReader
             '--until',
             $until->toIso8601String(),
             '--date-order',
-            '--pretty=format:%H%x1f%aI%x1f%an%x1f%ae%x1f%s%x1e',
+            '--source',
+            '--pretty=format:%H%x1f%aI%x1f%an%x1f%ae%x1f%S%x1f%s%x1e',
         ];
 
         if ($authorEmail !== null && $authorEmail !== '') {
@@ -76,7 +77,7 @@ class GitCommitReader
 
             $parts = explode("\x1f", $record);
 
-            if (count($parts) < 5) {
+            if (count($parts) < 6) {
                 continue;
             }
 
@@ -84,6 +85,7 @@ class GitCommitReader
             $committedAt = array_shift($parts);
             $authorName = array_shift($parts);
             $email = array_shift($parts);
+            $branch = $this->branch(array_shift($parts) ?? '');
             $subject = trim(implode("\x1f", $parts));
 
             if ($authorEmail !== null && $authorEmail !== '' && strcasecmp($email, $authorEmail) !== 0) {
@@ -98,9 +100,28 @@ class GitCommitReader
                 subject: $subject,
                 repository: $repository->name,
                 repositoryPath: $repository->path,
+                branch: $branch,
             );
         }
 
         return $commits;
+    }
+
+    private function branch(string $source): string
+    {
+        $source = trim($source);
+
+        if (str_starts_with($source, 'refs/heads/')) {
+            return substr($source, strlen('refs/heads/'));
+        }
+
+        if (str_starts_with($source, 'refs/remotes/')) {
+            $remote = substr($source, strlen('refs/remotes/'));
+            $slash = strpos($remote, '/');
+
+            return $slash === false ? $remote : substr($remote, $slash + 1);
+        }
+
+        return $source;
     }
 }

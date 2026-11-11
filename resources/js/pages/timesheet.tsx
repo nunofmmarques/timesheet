@@ -169,7 +169,14 @@ export default function Timesheet({
 
                 <div className="flex flex-col gap-8">
                     {days.map((day) => (
-                        <DaySection key={day.date} day={day} />
+                        <DaySection
+                            key={day.date}
+                            day={day}
+                            repositories={repositories}
+                            projects={teamworkProjects}
+                            teamworkConfigured={teamworkConfigured}
+                            teamworkError={teamworkError}
+                        />
                     ))}
                 </div>
             </main>

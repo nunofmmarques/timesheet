@@ -7,9 +7,11 @@ use App\Models\TimesheetSetting;
 use App\Services\GitCommitReader;
 use App\Services\RepositoryCatalog;
 use App\Services\TeamworkProjects;
+use App\Services\TeamworkTasks;
 use App\Services\TeamworkTimelogs;
 use App\Services\WorkdayPlanner;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -180,6 +182,82 @@ class TimesheetController extends Controller
         return back();
     }
 
+    public function tasks(int $project, TeamworkTasks $tasks): JsonResponse
+    {
+        if (! Repository::query()->where('teamwork_project_id', $project)->exists()) {
+            abort(404);
+        }
+
+        try {
+            return response()->json([
+                'tasks' => $tasks->forProject($project),
+            ]);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'message' => 'Teamwork tasks could not be loaded.',
+            ], 422);
+        }
+    }
+
+    public function storeTime(Request $request, TeamworkTasks $tasks, TeamworkTimelogs $timelogs): RedirectResponse
+    {
+        $data = $request->validate([
+            'project_id' => ['required', 'integer'],
+            'task_id' => ['required', 'integer'],
+            'date' => ['required', 'date_format:Y-m-d'],
+            'start' => ['required', 'date_format:H:i'],
+            'end' => ['required', 'date_format:H:i'],
+            'billable' => ['required', 'boolean'],
+        ]);
+
+        $projectId = (int) $data['project_id'];
+        $taskId = (int) $data['task_id'];
+
+        if (! Repository::query()->where('teamwork_project_id', $projectId)->exists()) {
+            throw ValidationException::withMessages([
+                'project_id' => 'Link this repository to a Teamwork project first.',
+            ]);
+        }
+
+        $minutes = $this->minutesBetween((string) $data['start'], (string) $data['end']);
+
+        if ($minutes < 1 || $minutes > 1440) {
+            throw ValidationException::withMessages([
+                'end' => 'End must be after the start.',
+            ]);
+        }
+
+        try {
+            if ($tasks->projectId($taskId) !== $projectId) {
+                throw ValidationException::withMessages([
+                    'task_id' => 'That task is not on the linked project.',
+                ]);
+            }
+
+            $timelogs->create(
+                $taskId,
+                (string) $data['date'],
+                ((string) $data['start']).':00',
+                $minutes,
+                $request->boolean('billable'),
+            );
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } catch (Throwable $exception) {
+            report($exception);
+
+            throw ValidationException::withMessages([
+                'task_id' => $exception->getMessage() !== ''
+                    ? $exception->getMessage()
+                    : 'Teamwork could not log this time.',
+            ]);
+        }
+
+        return back()->with('status', 'Logged '.$this->durationLabel($minutes).' in Teamwork.');
+    }
+
     /**
      * @param  list<array{
      *     date: string,
@@ -328,6 +406,30 @@ class TimesheetController extends Controller
         $parsed = CarbonImmutable::createFromFormat('Y-m-d', $value);
 
         return $parsed instanceof CarbonImmutable && $parsed->format('Y-m-d') === $value;
+    }
+
+    private function minutesBetween(string $start, string $end): int
+    {
+        [$startHour, $startMinute] = array_map(intval(...), explode(':', $start));
+        [$endHour, $endMinute] = array_map(intval(...), explode(':', $end));
+
+        return ($endHour * 60 + $endMinute) - ($startHour * 60 + $startMinute);
+    }
+
+    private function durationLabel(int $minutes): string
+    {
+        $hours = intdiv($minutes, 60);
+        $rest = $minutes % 60;
+
+        if ($hours === 0) {
+            return $rest.'m';
+        }
+
+        if ($rest === 0) {
+            return $hours.'h';
+        }
+
+        return $hours.'h '.$rest.'m';
     }
 
     private function timezone(): string

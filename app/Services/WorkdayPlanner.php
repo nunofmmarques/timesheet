@@ -26,7 +26,7 @@ class WorkdayPlanner
      *         repositoryPath: string,
      *         minutes: int,
      *         spentMinutes: int,
-     *         commits: list<array{hash: string, shortHash: string, subject: string, time: string, authorName: string}>
+     *         commits: list<array{hash: string, shortHash: string, subject: string, time: string, authorName: string, branch: string}>
      *     }>
      * }>
      */
@@ -136,7 +136,7 @@ class WorkdayPlanner
      *     weight: int,
      *     minutes: int,
      *     spentMinutes: int,
-     *     commits: list<array{hash: string, shortHash: string, subject: string, time: string, authorName: string}>
+     *     commits: list<array{hash: string, shortHash: string, subject: string, time: string, authorName: string, branch: string}>
      * }>
      */
     private function projects(array $byRepository, string $timezone): array
@@ -171,6 +171,7 @@ class WorkdayPlanner
                         'subject' => $commit->subject,
                         'time' => $commit->committedAt->timezone($timezone)->format('H:i'),
                         'authorName' => $commit->authorName,
+                        'branch' => $commit->branch,
                     ],
                     $commits,
                 ),
