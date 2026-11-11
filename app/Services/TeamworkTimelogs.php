@@ -22,7 +22,9 @@ class TeamworkTimelogs
      *     minutes: int,
      *     description: string,
      *     project: string,
+     *     projectId: int|null,
      *     task: string,
+     *     taskId: int|null,
      *     projectUrl: string|null
      * }>
      */
@@ -118,7 +120,9 @@ class TeamworkTimelogs
      *     minutes: int,
      *     description: string,
      *     project: string,
+     *     projectId: int|null,
      *     task: string,
+     *     taskId: int|null,
      *     projectUrl: string|null
      * }|null
      */
@@ -146,7 +150,9 @@ class TeamworkTimelogs
             'minutes' => (int) $log['minutes'],
             'description' => is_string($log['description'] ?? null) ? trim($log['description']) : '',
             'project' => $this->relatedName($projects, $projectId, $log['project'] ?? null),
+            'projectId' => $projectId,
             'task' => $this->relatedName($tasks, is_numeric($log['taskId'] ?? null) ? (int) $log['taskId'] : null, $log['task'] ?? null),
+            'taskId' => is_numeric($log['taskId'] ?? null) ? (int) $log['taskId'] : null,
             'projectUrl' => $this->projects->projectUrl($projectId),
         ];
     }

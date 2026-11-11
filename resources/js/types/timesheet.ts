@@ -33,8 +33,23 @@ export type TimesheetLog = {
     minutes: number;
     description: string;
     project: string;
+    projectId: number | null;
     task: string;
+    taskId: number | null;
     projectUrl: string | null;
+};
+
+export type ConstantTask = {
+    id: number;
+    weekday: number;
+    start: string;
+    end: string;
+    projectId: number;
+    projectName: string;
+    taskId: number;
+    taskName: string;
+    billable: boolean;
+    skippedDates: string[];
 };
 
 export type TimesheetDay = {
@@ -83,6 +98,7 @@ export type TimesheetPageProps = {
     teamworkError: string | null;
     teamworkTimeError: string | null;
     teamworkConfigured: boolean;
+    constants: ConstantTask[];
     settings: TimesheetSettings;
     discoverRoot: string;
     discoverRoots: string[];

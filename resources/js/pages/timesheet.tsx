@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { DaySection } from '@/components/timesheet/day-section';
 import { RangePicker } from '@/components/timesheet/range-picker';
 import { RepositorySheet } from '@/components/timesheet/repository-sheet';
+import { ConstantsSheet } from '@/components/timesheet/constants-sheet';
 import { SettingsSheet } from '@/components/timesheet/settings-sheet';
 import { TeamworkSheet } from '@/components/timesheet/teamwork-sheet';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -31,6 +32,7 @@ export default function Timesheet({
     teamworkError,
     teamworkTimeError,
     teamworkConfigured,
+    constants,
     settings,
     discoverRoots,
 }: TimesheetPageProps) {
@@ -87,6 +89,12 @@ export default function Timesheet({
                                 repositories={repositories}
                                 projects={teamworkProjects}
                                 discoverRoots={discoverRoots}
+                                configured={teamworkConfigured}
+                                error={teamworkError}
+                            />
+                            <ConstantsSheet
+                                constants={constants}
+                                projects={teamworkProjects}
                                 configured={teamworkConfigured}
                                 error={teamworkError}
                             />
@@ -176,6 +184,7 @@ export default function Timesheet({
                             projects={teamworkProjects}
                             teamworkConfigured={teamworkConfigured}
                             teamworkError={teamworkError}
+                            constants={constants}
                         />
                     ))}
                 </div>

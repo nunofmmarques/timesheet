@@ -1,28 +1,26 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Actions;
 
+use App\Models\ConstantTask;
+use App\Models\ConstantTaskSkip;
 use App\Models\Repository;
-use App\Models\TimesheetSetting;
 use App\Services\GitCommitReader;
 use App\Services\RepositoryCatalog;
 use App\Services\TeamworkProjects;
-use App\Services\TeamworkTasks;
 use App\Services\TeamworkTimelogs;
 use App\Services\WorkdayPlanner;
+use App\Support\Clock;
 use Carbon\CarbonImmutable;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
-use InvalidArgumentException;
 use Throwable;
 
-class TimesheetController extends Controller
+class ShowTimesheet
 {
-    public function index(
+    public function __invoke(
         Request $request,
         RepositoryCatalog $catalog,
         GitCommitReader $reader,
@@ -34,7 +32,7 @@ class TimesheetController extends Controller
 
         $setting = $catalog->ensureDefaults();
         [$from, $to, $preset] = $this->range($request);
-        $timezone = $this->timezone();
+        $timezone = Clock::timezone();
 
         $repositories = Repository::query()->orderBy('name')->get();
         $since = CarbonImmutable::parse($from, $timezone)->startOfDay();
@@ -66,6 +64,17 @@ class TimesheetController extends Controller
         $days = $planner->plan($commits, $timezone);
         $loggedTime = $this->loggedTime($timelogs, $from, $to, $timezone);
         $days = $this->attachLoggedTime($days, $loggedTime['entries'], $planner, $timezone);
+        $constants = ConstantTask::query()->orderBy('weekday')->orderBy('start_time')->get();
+        /** @var Collection<int, ConstantTaskSkip> $skips */
+        $skips = new Collection;
+
+        if ($constants->isNotEmpty()) {
+            $skips = ConstantTaskSkip::query()
+                ->whereIn('constant_task_id', $constants->modelKeys())
+                ->orderBy('date')
+                ->get();
+        }
+        $days = $this->includeConstantDays($days, $constants, $this->skippedIdsByDate($skips), $from, $to, $planner, $timezone);
 
         $discoverRoots = $catalog->discoverRoots();
         $teamworkProjects = $this->teamworkProjects($teamwork);
@@ -89,173 +98,27 @@ class TimesheetController extends Controller
             'teamworkError' => $teamworkProjects['error'],
             'teamworkTimeError' => $loggedTime['error'],
             'teamworkConfigured' => $teamwork->configured(),
+            'constants' => $constants->map(fn (ConstantTask $constant): array => [
+                'id' => $constant->id,
+                'weekday' => $constant->weekday,
+                'start' => $constant->start_time,
+                'end' => $constant->end_time,
+                'projectId' => $constant->teamwork_project_id,
+                'projectName' => $constant->teamwork_project_name,
+                'taskId' => $constant->teamwork_task_id,
+                'taskName' => $constant->teamwork_task_name,
+                'billable' => $constant->billable,
+                'skippedDates' => $skips
+                    ->where('constant_task_id', $constant->id)
+                    ->map(fn (ConstantTaskSkip $skip): string => $skip->date->toDateString())
+                    ->values(),
+            ])->values(),
             'settings' => [
                 'authorEmail' => $setting->author_email ?? '',
             ],
             'discoverRoot' => $discoverRoots[0] ?? (string) config('timesheet.discover_root'),
             'discoverRoots' => $discoverRoots,
         ]);
-    }
-
-    public function updateSettings(Request $request): RedirectResponse
-    {
-        $data = $request->validate([
-            'author_email' => ['nullable', 'email', 'max:255'],
-        ]);
-
-        $setting = TimesheetSetting::query()->first();
-
-        if (! $setting instanceof TimesheetSetting) {
-            $setting = new TimesheetSetting;
-        }
-
-        $setting->fill($data);
-        $setting->save();
-
-        return back();
-    }
-
-    public function scan(RepositoryCatalog $catalog): RedirectResponse
-    {
-        $roots = $catalog->discoverRoots();
-
-        if ($roots === []) {
-            throw ValidationException::withMessages([
-                'directory' => 'No scan folders are configured.',
-            ]);
-        }
-
-        $added = 0;
-
-        foreach ($roots as $root) {
-            try {
-                $added += $catalog->importDirectory($root);
-            } catch (InvalidArgumentException) {
-                continue;
-            }
-        }
-
-        return back()->with('status', $added === 1
-            ? 'Added 1 repository.'
-            : "Added {$added} repositories.");
-    }
-
-    public function updateRepository(Request $request, Repository $repository, TeamworkProjects $teamwork): RedirectResponse
-    {
-        $data = $request->validate([
-            'enabled' => ['sometimes', 'boolean'],
-            'teamwork_project_id' => ['sometimes', 'nullable', 'integer'],
-        ]);
-
-        if (array_key_exists('teamwork_project_id', $data)) {
-            $projectId = $data['teamwork_project_id'];
-
-            if ($projectId === null) {
-                $repository->teamwork_project_id = null;
-                $repository->teamwork_project_name = null;
-            } else {
-                $project = $teamwork->find($projectId);
-
-                if ($project === null) {
-                    throw ValidationException::withMessages([
-                        'teamwork_project_id' => 'That Teamwork project is not available.',
-                    ]);
-                }
-
-                $repository->teamwork_project_id = $project['id'];
-                $repository->teamwork_project_name = $project['name'];
-            }
-
-            unset($data['teamwork_project_id']);
-        }
-
-        $repository->fill($data);
-        $repository->save();
-
-        return back();
-    }
-
-    public function destroyRepository(Repository $repository): RedirectResponse
-    {
-        $repository->delete();
-
-        return back();
-    }
-
-    public function tasks(int $project, TeamworkTasks $tasks): JsonResponse
-    {
-        if (! Repository::query()->where('teamwork_project_id', $project)->exists()) {
-            abort(404);
-        }
-
-        try {
-            return response()->json([
-                'tasks' => $tasks->forProject($project),
-            ]);
-        } catch (Throwable $exception) {
-            report($exception);
-
-            return response()->json([
-                'message' => 'Teamwork tasks could not be loaded.',
-            ], 422);
-        }
-    }
-
-    public function storeTime(Request $request, TeamworkTasks $tasks, TeamworkTimelogs $timelogs): RedirectResponse
-    {
-        $data = $request->validate([
-            'project_id' => ['required', 'integer'],
-            'task_id' => ['required', 'integer'],
-            'date' => ['required', 'date_format:Y-m-d'],
-            'start' => ['required', 'date_format:H:i'],
-            'end' => ['required', 'date_format:H:i'],
-            'billable' => ['required', 'boolean'],
-        ]);
-
-        $projectId = (int) $data['project_id'];
-        $taskId = (int) $data['task_id'];
-
-        if (! Repository::query()->where('teamwork_project_id', $projectId)->exists()) {
-            throw ValidationException::withMessages([
-                'project_id' => 'Link this repository to a Teamwork project first.',
-            ]);
-        }
-
-        $minutes = $this->minutesBetween((string) $data['start'], (string) $data['end']);
-
-        if ($minutes < 1 || $minutes > 1440) {
-            throw ValidationException::withMessages([
-                'end' => 'End must be after the start.',
-            ]);
-        }
-
-        try {
-            if ($tasks->projectId($taskId) !== $projectId) {
-                throw ValidationException::withMessages([
-                    'task_id' => 'That task is not on the linked project.',
-                ]);
-            }
-
-            $timelogs->create(
-                $taskId,
-                (string) $data['date'],
-                ((string) $data['start']).':00',
-                $minutes,
-                $request->boolean('billable'),
-            );
-        } catch (ValidationException $exception) {
-            throw $exception;
-        } catch (Throwable $exception) {
-            report($exception);
-
-            throw ValidationException::withMessages([
-                'task_id' => $exception->getMessage() !== ''
-                    ? $exception->getMessage()
-                    : 'Teamwork could not log this time.',
-            ]);
-        }
-
-        return back()->with('status', 'Logged '.$this->durationLabel($minutes).' in Teamwork.');
     }
 
     /**
@@ -274,7 +137,9 @@ class TimesheetController extends Controller
      *     minutes: int,
      *     description: string,
      *     project: string,
+     *     projectId: int|null,
      *     task: string,
+     *     taskId: int|null,
      *     projectUrl: string|null
      * }>  $entries
      * @return list<array<string, mixed>>
@@ -309,7 +174,9 @@ class TimesheetController extends Controller
                 'minutes' => $log['minutes'],
                 'description' => $log['description'],
                 'project' => $log['project'],
+                'projectId' => $log['projectId'],
                 'task' => $log['task'],
+                'taskId' => $log['taskId'],
                 'projectUrl' => $log['projectUrl'],
             ], $logs);
             $day['loggedMinutes'] = array_sum(array_column($logs, 'minutes'));
@@ -356,7 +223,7 @@ class TimesheetController extends Controller
      */
     private function range(Request $request): array
     {
-        $timezone = $this->timezone();
+        $timezone = Clock::timezone();
         $today = CarbonImmutable::now($timezone);
         $preset = $request->string('preset')->toString();
 
@@ -408,34 +275,66 @@ class TimesheetController extends Controller
         return $parsed instanceof CarbonImmutable && $parsed->format('Y-m-d') === $value;
     }
 
-    private function minutesBetween(string $start, string $end): int
+    /**
+     * @param  list<array<string, mixed>>  $days
+     * @param  Collection<int, ConstantTask>  $constants
+     * @param  array<string, list<int>>  $skippedIdsByDate
+     * @return list<array<string, mixed>>
+     */
+    private function includeConstantDays(array $days, Collection $constants, array $skippedIdsByDate, string $from, string $to, WorkdayPlanner $planner, string $timezone): array
     {
-        [$startHour, $startMinute] = array_map(intval(...), explode(':', $start));
-        [$endHour, $endMinute] = array_map(intval(...), explode(':', $end));
-
-        return ($endHour * 60 + $endMinute) - ($startHour * 60 + $startMinute);
-    }
-
-    private function durationLabel(int $minutes): string
-    {
-        $hours = intdiv($minutes, 60);
-        $rest = $minutes % 60;
-
-        if ($hours === 0) {
-            return $rest.'m';
+        if ($constants->isEmpty()) {
+            return $days;
         }
 
-        if ($rest === 0) {
-            return $hours.'h';
+        $byDate = [];
+
+        foreach ($days as $day) {
+            if (is_string($day['date'] ?? null)) {
+                $byDate[$day['date']] = $day;
+            }
         }
 
-        return $hours.'h '.$rest.'m';
+        $cursor = CarbonImmutable::parse($from, $timezone)->startOfDay();
+        $end = CarbonImmutable::parse($to, $timezone)->startOfDay();
+
+        while ($cursor->lessThanOrEqualTo($end)) {
+            $date = $cursor->toDateString();
+            $matching = [];
+
+            foreach ($constants as $constant) {
+                if ($constant->weekday === $cursor->dayOfWeekIso) {
+                    $matching[] = $constant->id;
+                }
+            }
+
+            if ($matching !== [] && array_diff($matching, $skippedIdsByDate[$date] ?? []) !== [] && ! isset($byDate[$date])) {
+                $day = $planner->blankDay($date, $timezone);
+                $day['logged'] = [];
+                $day['loggedMinutes'] = 0;
+                $byDate[$date] = $day;
+            }
+
+            $cursor = $cursor->addDay();
+        }
+
+        krsort($byDate);
+
+        return array_values($byDate);
     }
 
-    private function timezone(): string
+    /**
+     * @param  Collection<int, ConstantTaskSkip>  $skips
+     * @return array<string, list<int>>
+     */
+    private function skippedIdsByDate(Collection $skips): array
     {
-        $timezone = config('app.timezone');
+        $byDate = [];
 
-        return is_string($timezone) && $timezone !== '' ? $timezone : 'Europe/Lisbon';
+        foreach ($skips as $skip) {
+            $byDate[$skip->date->toDateString()][] = $skip->constant_task_id;
+        }
+
+        return $byDate;
     }
 }

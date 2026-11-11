@@ -1,4 +1,4 @@
-import { router } from "@inertiajs/react";
+import { router, useForm } from "@inertiajs/react";
 import {
     ChevronDownIcon,
     ClockIcon,
@@ -30,8 +30,10 @@ import {
     InputGroupInput,
 } from "@/components/ui/input-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Spinner } from "@/components/ui/spinner";
 import { formatDuration } from "@/lib/timesheet";
 import type {
+    ConstantTask,
     RepositoryRecord,
     TeamworkProject,
     TimesheetCommit,
@@ -46,12 +48,14 @@ export function DaySection({
     projects,
     teamworkConfigured,
     teamworkError,
+    constants,
 }: {
     day: TimesheetDay;
     repositories: RepositoryRecord[];
     projects: TeamworkProject[];
     teamworkConfigured: boolean;
     teamworkError: string | null;
+    constants: ConstantTask[];
 }) {
     const rows =
         day.blocks.length > 0
@@ -100,6 +104,12 @@ export function DaySection({
               });
 
     const fullDay = day.loggedMinutes >= 8 * 60;
+    const pending = constants.filter(
+        (constant) =>
+            constant.weekday === isoWeekday(day.date) &&
+            !constant.skippedDates.includes(day.date) &&
+            !day.logged.some((entry) => covers(entry, constant)),
+    );
 
     return (
         <section className="flex flex-col gap-3">
@@ -116,7 +126,7 @@ export function DaySection({
                 </div>
             </div>
 
-            <LoggedTime day={day} fullDay={fullDay} />
+            <LoggedTime day={day} fullDay={fullDay} pending={pending} />
 
             {rows.length > 0 && (
                 <Collapsible
@@ -217,7 +227,15 @@ export function DaySection({
     );
 }
 
-function LoggedTime({ day, fullDay }: { day: TimesheetDay; fullDay: boolean }) {
+function LoggedTime({
+    day,
+    fullDay,
+    pending,
+}: {
+    day: TimesheetDay;
+    fullDay: boolean;
+    pending: ConstantTask[];
+}) {
     return (
         <div
             className={
@@ -258,6 +276,104 @@ function LoggedTime({ day, fullDay }: { day: TimesheetDay; fullDay: boolean }) {
                         </li>
                     ))}
                 </ul>
+            )}
+            {pending.length > 0 && (
+                <ul className="flex flex-col divide-y border-t">
+                    {pending.map((constant) => (
+                        <li
+                            key={constant.id}
+                            className="flex items-center gap-3 bg-muted/40 px-3 py-2 text-sm"
+                        >
+                            <span className="w-12 shrink-0 text-muted-foreground tabular-nums">
+                                {constant.start}
+                            </span>
+                            <span className="w-16 shrink-0 tabular-nums">
+                                {formatDuration(
+                                    minutesBetween(
+                                        constant.start,
+                                        constant.end,
+                                    ) ?? 0,
+                                )}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                                <span className="font-medium">
+                                    {constant.projectName}
+                                </span>
+                                <span className="text-muted-foreground">
+                                    {" "}
+                                    · {constant.taskName}
+                                </span>
+                                {!constant.billable && (
+                                    <span className="text-muted-foreground">
+                                        {" "}
+                                        · Non-billable
+                                    </span>
+                                )}
+                            </span>
+                            <div className="flex shrink-0 items-center gap-1">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    aria-label={`Ignore ${constant.taskName} on ${day.label}`}
+                                    onClick={() =>
+                                        router.post(
+                                            `/constants/${constant.id}/skips`,
+                                            { date: day.date },
+                                            { preserveScroll: true },
+                                        )
+                                    }
+                                >
+                                    Ignore
+                                </Button>
+                                <ConstantLogButton
+                                    constant={constant}
+                                    date={day.date}
+                                />
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+}
+
+function ConstantLogButton({
+    constant,
+    date,
+}: {
+    constant: ConstantTask;
+    date: string;
+}) {
+    const form = useForm({ date });
+    const minutes = minutesBetween(constant.start, constant.end);
+
+    return (
+        <div className="flex shrink-0 flex-col items-end gap-1">
+            <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={form.processing}
+                aria-label={`Log ${constant.taskName} on ${constant.projectName}`}
+                onClick={() =>
+                    form.post(`/constants/${constant.id}/log`, {
+                        preserveScroll: true,
+                    })
+                }
+            >
+                {form.processing ? (
+                    <Spinner data-icon="inline-start" />
+                ) : (
+                    <ClockIcon data-icon="inline-start" />
+                )}
+                Log {minutes !== null ? formatDuration(minutes) : "time"}
+            </Button>
+            {form.errors.date !== undefined && (
+                <span className="max-w-48 text-right text-xs text-destructive">
+                    {form.errors.date}
+                </span>
             )}
         </div>
     );
@@ -474,6 +590,54 @@ function LinkProject({
             </Dialog>
         </div>
     );
+}
+
+function isoWeekday(date: string): number {
+    const [year, month, day] = date.split("-").map(Number);
+    const weekday = new Date(year, month - 1, day).getDay();
+
+    return weekday === 0 ? 7 : weekday;
+}
+
+function covers(entry: TimesheetLog, constant: ConstantTask): boolean {
+    if (entry.taskId !== constant.taskId || entry.time === null) {
+        return false;
+    }
+
+    const start = minutesFromClock(constant.start);
+    const end = minutesFromClock(constant.end);
+    const otherStart = minutesFromClock(entry.time);
+
+    if (start === null || end === null || otherStart === null) {
+        return false;
+    }
+
+    return start < otherStart + entry.minutes && otherStart < end;
+}
+
+function minutesBetween(start: string, end: string): number | null {
+    const startMinutes = minutesFromClock(start);
+    const endMinutes = minutesFromClock(end);
+
+    if (
+        startMinutes === null ||
+        endMinutes === null ||
+        endMinutes <= startMinutes
+    ) {
+        return null;
+    }
+
+    return endMinutes - startMinutes;
+}
+
+function minutesFromClock(clock: string): number | null {
+    const match = /^(\d{2}):(\d{2})/.exec(clock);
+
+    if (match === null) {
+        return null;
+    }
+
+    return Number(match[1]) * 60 + Number(match[2]);
 }
 
 function projectFor(
