@@ -25,7 +25,9 @@ class TeamworkTimelogs
      *     projectId: int|null,
      *     task: string,
      *     taskId: int|null,
-     *     projectUrl: string|null
+     *     projectUrl: string|null,
+     *     taskUrl: string|null,
+     *     billable: bool
      * }>
      */
     public function between(string $from, string $to, string $timezone): array
@@ -123,7 +125,9 @@ class TeamworkTimelogs
      *     projectId: int|null,
      *     task: string,
      *     taskId: int|null,
-     *     projectUrl: string|null
+     *     projectUrl: string|null,
+     *     taskUrl: string|null,
+     *     billable: bool
      * }|null
      */
     private function entry(mixed $log, int $userId, array $projects, array $tasks, string $timezone): ?array
@@ -154,7 +158,27 @@ class TeamworkTimelogs
             'task' => $this->relatedName($tasks, is_numeric($log['taskId'] ?? null) ? (int) $log['taskId'] : null, $log['task'] ?? null),
             'taskId' => is_numeric($log['taskId'] ?? null) ? (int) $log['taskId'] : null,
             'projectUrl' => $this->projects->projectUrl($projectId),
+            'taskUrl' => $this->projects->taskUrl(is_numeric($log['taskId'] ?? null) ? (int) $log['taskId'] : null),
+            'billable' => $this->billable($log),
         ];
+    }
+
+    /**
+     * @param  array<mixed>  $log
+     */
+    private function billable(array $log): bool
+    {
+        $value = $log['billable'] ?? $log['isBillable'] ?? true;
+
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_numeric($value)) {
+            return (int) $value !== 0;
+        }
+
+        return true;
     }
 
     /**

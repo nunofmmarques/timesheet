@@ -140,7 +140,9 @@ class ShowTimesheet
      *     projectId: int|null,
      *     task: string,
      *     taskId: int|null,
-     *     projectUrl: string|null
+     *     projectUrl: string|null,
+     *     taskUrl: string|null,
+     *     billable: bool
      * }>  $entries
      * @return list<array<string, mixed>>
      */
@@ -178,6 +180,8 @@ class ShowTimesheet
                 'task' => $log['task'],
                 'taskId' => $log['taskId'],
                 'projectUrl' => $log['projectUrl'],
+                'taskUrl' => $log['taskUrl'],
+                'billable' => $log['billable'],
             ], $logs);
             $day['loggedMinutes'] = array_sum(array_column($logs, 'minutes'));
             $result[] = $day;

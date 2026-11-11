@@ -53,6 +53,15 @@ class TeamworkProjects
         return $this->url().'/app/projects/'.$id.'/overview';
     }
 
+    public function taskUrl(?int $id): ?string
+    {
+        if ($id === null || $this->url() === '') {
+            return null;
+        }
+
+        return $this->url().'/app/tasks/'.$id;
+    }
+
     /**
      * @return list<array{id: int, name: string}>
      */

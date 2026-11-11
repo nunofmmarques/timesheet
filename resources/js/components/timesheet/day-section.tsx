@@ -112,14 +112,17 @@ export function DaySection({
     );
 
     return (
-        <section className="flex flex-col gap-3">
+        <section
+            id={`day-${day.date}`}
+            className="flex scroll-mt-6 flex-col gap-3"
+        >
             <div className="flex items-baseline justify-between gap-3">
                 <div className="flex items-center gap-2">
                     <h2 className="font-heading text-base font-medium">
                         {day.label}
                     </h2>
                     {fullDay && (
-                        <Badge className="bg-teamwork text-white">
+                        <Badge className="bg-tw-orange text-white">
                             8h logged
                         </Badge>
                     )}
@@ -166,7 +169,7 @@ export function DaySection({
                                                     null && (
                                                     <span className="flex min-w-0 items-center gap-1 text-muted-foreground">
                                                         <TeamworkLogo
-                                                            variant="mark"
+                                                            variant="transparent"
                                                             className="size-3.5"
                                                         />
                                                         <span className="truncate">
@@ -240,19 +243,19 @@ function LoggedTime({
         <div
             className={
                 fullDay
-                    ? "overflow-hidden rounded-xl bg-card ring-1 ring-teamwork"
+                    ? "overflow-hidden rounded-xl bg-card ring-1 ring-tw-slate"
                     : "overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10"
             }
         >
             <div
                 className={
                     fullDay
-                        ? "flex items-center justify-between gap-3 bg-teamwork px-3 py-2 text-white"
+                        ? "flex items-center justify-between gap-3 bg-tw-slate px-3 py-2 text-white"
                         : "flex items-center justify-between gap-3 px-3 py-2"
                 }
             >
                 <p className="flex items-center gap-2 text-sm font-medium">
-                    <TeamworkLogo />
+                    <TeamworkLogo variant={fullDay ? 'slate' : 'white'} />
                     Teamwork
                 </p>
                 <p className="text-sm font-medium tabular-nums">
@@ -269,8 +272,15 @@ function LoggedTime({
                             <span className="w-12 shrink-0 text-muted-foreground tabular-nums">
                                 {entry.time ?? "—"}
                             </span>
-                            <span className="w-16 shrink-0 tabular-nums">
+                            <span className="flex w-20 shrink-0 items-center gap-1.5 tabular-nums">
                                 {formatDuration(entry.minutes)}
+                                {!entry.billable && (
+                                    <span
+                                        className="size-2 shrink-0 rounded-full bg-tw-indigo"
+                                        role="img"
+                                        aria-label="Non-billable"
+                                    />
+                                )}
                             </span>
                             <LoggedEntry entry={entry} />
                         </li>
@@ -397,9 +407,23 @@ function LoggedEntry({ entry }: { entry: TimesheetLog }) {
     return (
         <span className="min-w-0 flex-1">
             <span className="font-medium">{project}</span>
-            {entry.task !== "" && (
-                <span className="text-muted-foreground"> · {entry.task}</span>
-            )}
+            {entry.task !== "" &&
+                (entry.taskUrl === null ? (
+                    <span className="text-muted-foreground">
+                        {" "}
+                        · {entry.task}
+                    </span>
+                ) : (
+                    <a
+                        href={entry.taskUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-muted-foreground underline-offset-4 hover:underline"
+                    >
+                        {" "}
+                        · {entry.task}
+                    </a>
+                ))}
             {entry.description !== "" && (
                 <span className="block text-muted-foreground">
                     {entry.description}

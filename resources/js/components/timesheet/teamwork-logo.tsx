@@ -1,15 +1,17 @@
 import type { ImgHTMLAttributes } from 'react';
-import mark from '@/assets/teamwork-mark.png';
-import pill from '@/assets/teamwork.png';
+import slate from '@/assets/tw-slate.png';
+import transparent from '@/assets/tw-transparent.png';
+import white from '@/assets/tw-white.png';
 import { cn } from '@/lib/utils';
 
 const sources = {
-    mark,
-    pill,
+    slate,
+    transparent,
+    white,
 } as const;
 
 export function TeamworkLogo({
-    variant = 'pill',
+    variant = 'white',
     className,
     alt = '',
     ...props

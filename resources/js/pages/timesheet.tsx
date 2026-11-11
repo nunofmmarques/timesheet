@@ -3,6 +3,7 @@ import { GitCommitHorizontalIcon, TriangleAlertIcon } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { DaySection } from '@/components/timesheet/day-section';
+import { LoggedChart } from '@/components/timesheet/logged-chart';
 import { RangePicker } from '@/components/timesheet/range-picker';
 import { RepositorySheet } from '@/components/timesheet/repository-sheet';
 import { ConstantsSheet } from '@/components/timesheet/constants-sheet';
@@ -173,6 +174,10 @@ export default function Timesheet({
                             </EmptyDescription>
                         </EmptyHeader>
                     </Empty>
+                )}
+
+                {days.length > 0 && (
+                    <LoggedChart days={days} from={from} to={to} />
                 )}
 
                 <div className="flex flex-col gap-8">

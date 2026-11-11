@@ -13,7 +13,13 @@
         'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
         'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
         'Noto Color Emoji';
-    --color-teamwork: #ff22b1;
+    --color-tw-violet: #1f0f4a;
+    --color-tw-purple: #6438e0;
+    --color-tw-pink: #ff22b1;
+    --color-tw-slate: #1d1c39;
+    --color-tw-indigo: #6a84ed;
+    --color-tw-ivory: #fff9f2;
+    --color-tw-orange: #f45721;
 }
 
 @theme inline {

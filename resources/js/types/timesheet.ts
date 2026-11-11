@@ -37,6 +37,8 @@ export type TimesheetLog = {
     task: string;
     taskId: number | null;
     projectUrl: string | null;
+    taskUrl: string | null;
+    billable: boolean;
 };
 
 export type ConstantTask = {
