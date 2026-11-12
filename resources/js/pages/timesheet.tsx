@@ -62,113 +62,118 @@ export default function Timesheet({
         <>
             <Head title="Timesheet" />
             <Toaster />
-            <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8">
-                <header className="flex flex-col gap-4">
-                    <div className="flex max-w-xl flex-col gap-1">
-                        <h1 className="font-heading text-2xl font-medium tracking-tight">
-                            Timesheet
-                        </h1>
-                        <p className="text-sm text-muted-foreground">
-                            Projects and commits for each day, with the working
-                            day split across them. Monday to Thursday is
-                            9:00–13:00 and 14:00–18:00. Friday is 9:00–13:00.
-                        </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <RepositorySheet
-                            repositories={repositories}
-                            discoverRoots={discoverRoots}
-                        />
-                        <TeamworkSheet
-                            repositories={repositories}
-                            projects={teamworkProjects}
-                            discoverRoots={discoverRoots}
-                            configured={teamworkConfigured}
-                            error={teamworkError}
-                        />
-                        <ConstantsSheet
-                            constants={constants}
-                            projects={teamworkProjects}
-                            configured={teamworkConfigured}
-                            error={teamworkError}
-                        />
-                        <TimeOffSheet absences={absences} />
-                        <SettingsSheet settings={settings} />
-                    </div>
-                </header>
+            <main className="flex flex-col gap-6 px-4 py-8">
+                <div className="mx-auto w-full max-w-5xl">
+                    <header className="flex flex-col gap-4">
+                        <div className="flex max-w-xl flex-col gap-1">
+                            <h1 className="font-heading text-2xl font-medium tracking-tight">
+                                Timesheet
+                            </h1>
+                            <p className="text-sm text-muted-foreground">
+                                Projects and commits for each day, with the
+                                working day split across them.
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <RepositorySheet
+                                repositories={repositories}
+                                discoverRoots={discoverRoots}
+                            />
+                            <TeamworkSheet
+                                repositories={repositories}
+                                projects={teamworkProjects}
+                                discoverRoots={discoverRoots}
+                                configured={teamworkConfigured}
+                                error={teamworkError}
+                            />
+                            <ConstantsSheet
+                                constants={constants}
+                                projects={teamworkProjects}
+                                configured={teamworkConfigured}
+                                error={teamworkError}
+                            />
+                            <TimeOffSheet absences={absences} />
+                            <SettingsSheet settings={settings} />
+                        </div>
+                    </header>
 
-                {teamworkTimeError !== null && (
-                    <Alert>
-                        <TriangleAlertIcon />
-                        <AlertTitle>
-                            Teamwork time could not be loaded
-                        </AlertTitle>
-                        <AlertDescription>{teamworkTimeError}</AlertDescription>
-                    </Alert>
-                )}
+                    {teamworkTimeError !== null && (
+                        <Alert>
+                            <TriangleAlertIcon />
+                            <AlertTitle>
+                                Teamwork time could not be loaded
+                            </AlertTitle>
+                            <AlertDescription>
+                                {teamworkTimeError}
+                            </AlertDescription>
+                        </Alert>
+                    )}
 
-                {problems.length > 0 && (
-                    <Alert>
-                        <TriangleAlertIcon />
-                        <AlertTitle>
-                            Some repositories could not be read
-                        </AlertTitle>
-                        <AlertDescription>
-                            {problems
-                                .map(
-                                    (problem) =>
-                                        `${problem.repository}: ${problem.message}`,
-                                )
-                                .join(" ")}
-                        </AlertDescription>
-                    </Alert>
-                )}
-
-                {repositories.length === 0 && (
-                    <Empty>
-                        <EmptyHeader>
-                            <EmptyMedia variant="icon">
-                                <GitCommitHorizontalIcon />
-                            </EmptyMedia>
-                            <EmptyTitle>No repositories yet</EmptyTitle>
-                            <EmptyDescription>
-                                Scan the configured folders and this page will
-                                list what you committed.
-                            </EmptyDescription>
-                        </EmptyHeader>
-                        <EmptyContent>
-                            <Button
-                                onClick={() =>
-                                    router.post(
-                                        "/repositories/scan",
-                                        {},
-                                        { preserveScroll: true },
+                    {problems.length > 0 && (
+                        <Alert>
+                            <TriangleAlertIcon />
+                            <AlertTitle>
+                                Some repositories could not be read
+                            </AlertTitle>
+                            <AlertDescription>
+                                {problems
+                                    .map(
+                                        (problem) =>
+                                            `${problem.repository}: ${problem.message}`,
                                     )
-                                }
-                            >
-                                Scan folders
-                            </Button>
-                        </EmptyContent>
-                    </Empty>
-                )}
+                                    .join(" ")}
+                            </AlertDescription>
+                        </Alert>
+                    )}
 
-                {repositories.length > 0 && days.length === 0 && (
-                    <Empty>
-                        <EmptyHeader>
-                            <EmptyMedia variant="icon">
-                                <GitCommitHorizontalIcon />
-                            </EmptyMedia>
-                            <EmptyTitle>No commits in this interval</EmptyTitle>
-                            <EmptyDescription>
-                                {settings.authorEmail
-                                    ? `Nothing from ${settings.authorEmail} between ${from} and ${to}.`
-                                    : `Nothing between ${from} and ${to}.`}{" "}
-                                Widen the dates, or clear the author filter in
-                                Author.
-                            </EmptyDescription>
-                        </EmptyHeader>
-                    </Empty>
-                )}
+                    {repositories.length === 0 && (
+                        <Empty>
+                            <EmptyHeader>
+                                <EmptyMedia variant="icon">
+                                    <GitCommitHorizontalIcon />
+                                </EmptyMedia>
+                                <EmptyTitle>No repositories yet</EmptyTitle>
+                                <EmptyDescription>
+                                    Scan the configured folders and this page
+                                    will list what you committed.
+                                </EmptyDescription>
+                            </EmptyHeader>
+                            <EmptyContent>
+                                <Button
+                                    onClick={() =>
+                                        router.post(
+                                            "/repositories/scan",
+                                            {},
+                                            { preserveScroll: true },
+                                        )
+                                    }
+                                >
+                                    Scan folders
+                                </Button>
+                            </EmptyContent>
+                        </Empty>
+                    )}
+
+                    {repositories.length > 0 && days.length === 0 && (
+                        <Empty>
+                            <EmptyHeader>
+                                <EmptyMedia variant="icon">
+                                    <GitCommitHorizontalIcon />
+                                </EmptyMedia>
+                                <EmptyTitle>
+                                    No commits in this interval
+                                </EmptyTitle>
+                                <EmptyDescription>
+                                    {settings.authorEmail
+                                        ? `Nothing from ${settings.authorEmail} between ${from} and ${to}.`
+                                        : `Nothing between ${from} and ${to}.`}{" "}
+                                    Widen the dates, or clear the author filter
+                                    in Author.
+                                </EmptyDescription>
+                            </EmptyHeader>
+                        </Empty>
+                    )}
+                </div>
 
                 {repositories.length > 0 && (
                     <LoggedChart
@@ -179,18 +184,20 @@ export default function Timesheet({
                     />
                 )}
 
-                <div className="flex flex-col gap-8">
-                    {days.map((day) => (
-                        <DaySection
-                            key={day.date}
-                            day={day}
-                            repositories={repositories}
-                            projects={teamworkProjects}
-                            teamworkConfigured={teamworkConfigured}
-                            teamworkError={teamworkError}
-                            constants={constants}
-                        />
-                    ))}
+                <div className="mx-auto w-full max-w-5xl">
+                    <div className="flex flex-col gap-8">
+                        {days.map((day) => (
+                            <DaySection
+                                key={day.date}
+                                day={day}
+                                repositories={repositories}
+                                projects={teamworkProjects}
+                                teamworkConfigured={teamworkConfigured}
+                                teamworkError={teamworkError}
+                                constants={constants}
+                            />
+                        ))}
+                    </div>
                 </div>
             </main>
         </>

@@ -98,9 +98,9 @@ export function LoggedChart({
     const span = spanOf(from, to);
 
     return (
-        <Card size="sm">
+        <Card size="sm" className="-mx-4 rounded-none">
             <CardHeader className="border-b items-center">
-                <CardTitle className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-3">
+                <CardTitle className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-3 max-w-5xl mx-auto">
                     <div className="flex items-center gap-2 text-sm font-medium">
                         <TeamworkLogo />
                         Teamwork
@@ -204,6 +204,23 @@ export function LoggedChart({
                                     strokeWidth="3"
                                 />
                             </pattern>
+                            <pattern
+                                id={`${patternId}-lines`}
+                                width="8"
+                                height="8"
+                                patternUnits="userSpaceOnUse"
+                                patternTransform="rotate(45)"
+                            >
+                                <line
+                                    x1="0"
+                                    y1="0"
+                                    x2="0"
+                                    y2="8"
+                                    stroke="var(--muted-foreground)"
+                                    strokeOpacity="0.45"
+                                    strokeWidth="3"
+                                />
+                            </pattern>
                         </defs>
                         <XAxis
                             dataKey="date"
@@ -247,7 +264,7 @@ export function LoggedChart({
                 </ChartContainer>
             </CardContent>
             <CardFooter>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground max-w-5xl mx-auto">
                     <span className="flex items-center gap-1.5">
                         <span className="size-2 rounded-sm bg-tw-pink" />
                         Billable
@@ -654,7 +671,7 @@ function ColumnShape({
             : width > 0
               ? { x, y: slot.y, width, height: slot.height }
               : slot;
-    const weekend = payload?.weekend && column && !payload.absence;
+    const weekend = Boolean(payload?.weekend) && column;
     const today = payload?.today === true;
     const absence = Boolean(payload?.absence) && column;
 
@@ -692,7 +709,7 @@ function ColumnShape({
                     {...events}
                 />
             )}
-            {weekend && column && (
+            {weekend && !absence && column && (
                 <rect
                     x={column.x}
                     y={column.y}
@@ -701,6 +718,17 @@ function ColumnShape({
                     rx={3}
                     fill={`url(#${patternId})`}
                     {...events}
+                />
+            )}
+            {weekend && absence && column && (
+                <rect
+                    x={column.x}
+                    y={column.y}
+                    width={column.width}
+                    height={column.height}
+                    rx={3}
+                    fill={`url(#${patternId}-lines)`}
+                    pointerEvents="none"
                 />
             )}
             {billableHeight > 0 &&
