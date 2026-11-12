@@ -7,6 +7,7 @@ import { LoggedChart } from "@/components/timesheet/logged-chart";
 import { RangePicker } from "@/components/timesheet/range-picker";
 import { RepositorySheet } from "@/components/timesheet/repository-sheet";
 import { ConstantsSheet } from "@/components/timesheet/constants-sheet";
+import { TimeOffSheet } from "@/components/timesheet/time-off-sheet";
 import { SettingsSheet } from "@/components/timesheet/settings-sheet";
 import { TeamworkSheet } from "@/components/timesheet/teamwork-sheet";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -33,6 +34,7 @@ export default function Timesheet({
     teamworkError,
     teamworkTimeError,
     teamworkConfigured,
+    absences,
     constants,
     settings,
     discoverRoots,
@@ -99,6 +101,7 @@ export default function Timesheet({
                                 configured={teamworkConfigured}
                                 error={teamworkError}
                             />
+                            <TimeOffSheet absences={absences} />
                             <SettingsSheet settings={settings} />
                         </div>
                     </div>

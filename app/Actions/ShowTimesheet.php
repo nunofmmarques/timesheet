@@ -2,6 +2,7 @@
 
 namespace App\Actions;
 
+use App\Models\Absence;
 use App\Models\ConstantTask;
 use App\Models\ConstantTaskSkip;
 use App\Models\Repository;
@@ -75,6 +76,8 @@ class ShowTimesheet
                 ->get();
         }
         $days = $this->includeConstantDays($days, $constants, $this->skippedIdsByDate($skips), $from, $to, $planner, $timezone);
+        $absences = Absence::query()->orderByDesc('starts_on')->orderByDesc('id')->get();
+        $days = $this->attachAbsences($days, $absences, $from, $to, $planner, $timezone);
 
         $discoverRoots = $catalog->discoverRoots();
         $teamworkProjects = $this->teamworkProjects($teamwork);
@@ -98,6 +101,14 @@ class ShowTimesheet
             'teamworkError' => $teamworkProjects['error'],
             'teamworkTimeError' => $loggedTime['error'],
             'teamworkConfigured' => $teamwork->configured(),
+            'absences' => $absences->map(fn (Absence $absence): array => [
+                'id' => $absence->id,
+                'kind' => $absence->kind,
+                'label' => $absence->label(),
+                'note' => $absence->note ?? '',
+                'startsOn' => $absence->starts_on->toDateString(),
+                'endsOn' => $absence->ends_on->toDateString(),
+            ])->values(),
             'constants' => $constants->map(fn (ConstantTask $constant): array => [
                 'id' => $constant->id,
                 'weekday' => $constant->weekday,
@@ -340,5 +351,51 @@ class ShowTimesheet
         }
 
         return $byDate;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $days
+     * @param  Collection<int, Absence>  $absences
+     * @return list<array<string, mixed>>
+     */
+    private function attachAbsences(array $days, Collection $absences, string $from, string $to, WorkdayPlanner $planner, string $timezone): array
+    {
+        $byDate = [];
+
+        foreach ($days as $day) {
+            if (is_string($day['date'] ?? null)) {
+                $byDate[$day['date']] = $day;
+            }
+        }
+
+        $cursor = CarbonImmutable::parse($from, $timezone)->startOfDay();
+        $end = CarbonImmutable::parse($to, $timezone)->startOfDay();
+
+        while ($cursor->lessThanOrEqualTo($end)) {
+            $date = $cursor->toDateString();
+            $match = $absences->first(fn (Absence $absence): bool => $absence->starts_on->toDateString() <= $date && $absence->ends_on->toDateString() >= $date);
+
+            if ($match instanceof Absence && ! isset($byDate[$date])) {
+                $day = $planner->blankDay($date, $timezone);
+                $day['logged'] = [];
+                $day['loggedMinutes'] = 0;
+                $byDate[$date] = $day;
+            }
+
+            if (isset($byDate[$date])) {
+                $byDate[$date]['absence'] = $match instanceof Absence ? [
+                    'id' => $match->id,
+                    'kind' => $match->kind,
+                    'label' => $match->label(),
+                    'note' => $match->note ?? '',
+                ] : null;
+            }
+
+            $cursor = $cursor->addDay();
+        }
+
+        krsort($byDate);
+
+        return array_values($byDate);
     }
 }

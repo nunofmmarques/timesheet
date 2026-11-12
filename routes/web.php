@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\DeleteAbsence;
 use App\Actions\DeleteConstantTask;
 use App\Actions\DeleteRepository;
 use App\Actions\IgnoreConstantDay;
@@ -9,7 +10,9 @@ use App\Actions\LogTeamworkTime;
 use App\Actions\RestoreConstantDay;
 use App\Actions\ScanRepositories;
 use App\Actions\ShowTimesheet;
+use App\Actions\StoreAbsence;
 use App\Actions\StoreConstantTask;
+use App\Actions\UpdateAbsence;
 use App\Actions\UpdateConstantTask;
 use App\Actions\UpdateRepository;
 use App\Actions\UpdateTeamworkTime;
@@ -18,6 +21,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', ShowTimesheet::class)->name('home');
 Route::put('/settings', UpdateTimesheetSettings::class)->name('settings.update');
+Route::post('/time-off', StoreAbsence::class)->name('time-off.store');
+Route::put('/time-off/{absence}', UpdateAbsence::class)->name('time-off.update');
+Route::delete('/time-off/{absence}', DeleteAbsence::class)->name('time-off.destroy');
 Route::post('/constants', StoreConstantTask::class)->name('constants.store');
 Route::put('/constants/{constant}', UpdateConstantTask::class)->name('constants.update');
 Route::delete('/constants/{constant}', DeleteConstantTask::class)->name('constants.destroy');

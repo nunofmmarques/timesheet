@@ -53,6 +53,7 @@ type ChartPoint = {
     nonBillable: number;
     weekend: boolean;
     today: boolean;
+    absence: string | null;
 };
 
 type ColumnShapeProps = {
@@ -100,7 +101,7 @@ export function LoggedChart({
                 </CardAction>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1.5">
                         <span className="size-2 rounded-sm bg-tw-pink" />
                         Billable
@@ -108,6 +109,10 @@ export function LoggedChart({
                     <span className="flex items-center gap-1.5">
                         <span className="size-2 rounded-sm bg-tw-indigo" />
                         Non-billable
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                        <span className="size-2 rounded-sm bg-tw-purple" />
+                        Time off
                     </span>
                 </div>
                 <ChartContainer
@@ -183,10 +188,18 @@ export function LoggedChart({
 
                                             return (
                                                 <span className="font-medium tabular-nums">
-                                                    {formatDuration(
-                                                        row?.minutes ??
-                                                            Number(_value),
-                                                    )}
+                                                    {row?.absence
+                                                        ? row.absence
+                                                        : formatDuration(
+                                                              row?.minutes ??
+                                                                  Number(
+                                                                      _value,
+                                                                  ),
+                                                          )}
+                                                    {row?.absence &&
+                                                    (row?.minutes ?? 0) > 0
+                                                        ? ` · ${formatDuration(row.minutes)}`
+                                                        : ''}
                                                     {nonBillable > 0
                                                         ? ` · ${formatDuration(nonBillable)} non-billable`
                                                         : ''}
@@ -229,13 +242,26 @@ function chartPoints(
     to: string,
 ): ChartPoint[] {
     const logged = new Map(days.map((day) => [day.date, splitLogged(day)]));
+    const absences = new Map(
+        days.map((day) => [day.date, day.absence?.label ?? null]),
+    );
     const dates = eachDate(from, to);
 
     if (dates.length === 0) {
-        return [...days].reverse().map((day) => point(day.date, splitLogged(day)));
+        return [...days]
+            .reverse()
+            .map((day) =>
+                point(day.date, splitLogged(day), day.absence?.label ?? null),
+            );
     }
 
-    return dates.map((date) => point(date, logged.get(date) ?? emptyLogged()));
+    return dates.map((date) =>
+        point(
+            date,
+            logged.get(date) ?? emptyLogged(),
+            absences.get(date) ?? null,
+        ),
+    );
 }
 
 function splitLogged(day: TimesheetDay): LoggedSplit {
@@ -257,7 +283,11 @@ function emptyLogged(): LoggedSplit {
     return { minutes: 0, billable: 0, nonBillable: 0 };
 }
 
-function point(date: string, logged: LoggedSplit): ChartPoint {
+function point(
+    date: string,
+    logged: LoggedSplit,
+    absence: string | null,
+): ChartPoint {
     const parsed = localDate(date);
     const weekday = WEEKDAYS[parsed.getDay()];
     const day = String(parsed.getDate());
@@ -274,6 +304,7 @@ function point(date: string, logged: LoggedSplit): ChartPoint {
         nonBillable: logged.nonBillable,
         weekend: parsed.getDay() === 0 || parsed.getDay() === 6,
         today: date === todayInLisbon(),
+        absence,
     };
 }
 
@@ -364,8 +395,9 @@ function ColumnShape({
                   height: background.height,
               }
             : null;
-    const weekend = payload?.weekend && slot;
+    const weekend = payload?.weekend && slot && !payload.absence;
     const today = payload?.today === true;
+    const absence = Boolean(payload?.absence) && slot;
 
     return (
         <g className="cursor-pointer">
@@ -379,7 +411,7 @@ function ColumnShape({
                     onClick={select}
                 />
             ) : null}
-            {today && slot && (
+            {today && !absence && slot && (
                 <rect
                     x={slot.x}
                     y={slot.y}
@@ -388,6 +420,17 @@ function ColumnShape({
                     rx={6}
                     fill="color-mix(in oklab, var(--color-tw-orange) 16%, transparent)"
                     pointerEvents="none"
+                />
+            )}
+            {absence && slot && (
+                <rect
+                    x={slot.x}
+                    y={slot.y}
+                    width={slot.width}
+                    height={slot.height}
+                    rx={6}
+                    fill="color-mix(in oklab, var(--color-tw-purple) 42%, white)"
+                    {...events}
                 />
             )}
             {weekend && (
@@ -431,7 +474,7 @@ function ColumnShape({
                     {...events}
                 />
             )}
-            {today && slot && (
+            {(today || absence) && slot && (
                 <rect
                     x={slot.x}
                     y={slot.y}
@@ -439,7 +482,11 @@ function ColumnShape({
                     height={slot.height}
                     rx={6}
                     fill="none"
-                    stroke="var(--color-tw-orange)"
+                    stroke={
+                        today
+                            ? 'var(--color-tw-orange)'
+                            : 'var(--color-tw-purple)'
+                    }
                     strokeWidth={1.5}
                     pointerEvents="none"
                 />
@@ -510,7 +557,9 @@ function DayTick({
             className={
                 point?.today
                     ? 'cursor-pointer fill-tw-orange text-[10px] font-medium'
-                    : 'cursor-pointer fill-muted-foreground text-[10px]'
+                    : point?.absence
+                      ? 'cursor-pointer fill-tw-purple text-[10px] font-medium'
+                      : 'cursor-pointer fill-muted-foreground text-[10px]'
             }
             onClick={() => {
                 if (point !== undefined) {

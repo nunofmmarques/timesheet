@@ -54,6 +54,22 @@ export type ConstantTask = {
     skippedDates: string[];
 };
 
+export type TimeOff = {
+    id: number;
+    kind: string;
+    label: string;
+    note: string;
+    startsOn: string;
+    endsOn: string;
+};
+
+export type DayAbsence = {
+    id: number;
+    kind: string;
+    label: string;
+    note: string;
+};
+
 export type TimesheetDay = {
     date: string;
     label: string;
@@ -63,6 +79,7 @@ export type TimesheetDay = {
     projects: TimesheetProject[];
     loggedMinutes: number;
     logged: TimesheetLog[];
+    absence: DayAbsence | null;
 };
 
 export type RepositoryRecord = {
@@ -100,6 +117,7 @@ export type TimesheetPageProps = {
     teamworkError: string | null;
     teamworkTimeError: string | null;
     teamworkConfigured: boolean;
+    absences: TimeOff[];
     constants: ConstantTask[];
     settings: TimesheetSettings;
     discoverRoot: string;

@@ -113,12 +113,17 @@ export function DaySection({
 
     const fullDay = day.loggedMinutes >= 8 * 60;
     const today = day.date === todayInLisbon();
-    const pending = constants.filter(
-        (constant) =>
-            constant.weekday === isoWeekday(day.date) &&
-            !constant.skippedDates.includes(day.date) &&
-            !day.logged.some((entry) => covers(entry, constant)),
-    );
+    const pending =
+        day.absence === null
+            ? constants.filter(
+                  (constant) =>
+                      constant.weekday === isoWeekday(day.date) &&
+                      !constant.skippedDates.includes(day.date) &&
+                      !day.logged.some((entry) => covers(entry, constant)),
+              )
+            : [];
+    const onlyTimeOff =
+        day.absence !== null && rows.length === 0 && day.logged.length === 0;
 
     return (
         <section
@@ -138,6 +143,11 @@ export function DaySection({
                     {today && (
                         <Badge className="bg-tw-orange text-white">Today</Badge>
                     )}
+                    {day.absence && (
+                        <Badge className="max-w-48 bg-tw-purple text-white">
+                            <span className="truncate">{day.absence.label}</span>
+                        </Badge>
+                    )}
                     {fullDay && (
                         <Badge className="bg-green-600 text-white">
                             <CheckIcon data-icon="inline-start" />
@@ -147,7 +157,9 @@ export function DaySection({
                 </div>
             </div>
 
-            <LoggedTime day={day} fullDay={fullDay} pending={pending} />
+            {!onlyTimeOff && (
+                <LoggedTime day={day} fullDay={fullDay} pending={pending} />
+            )}
 
             {rows.length > 0 && (
                 <Collapsible
