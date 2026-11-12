@@ -9,6 +9,7 @@ import {
     SearchIcon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { AbsenceIcon } from "@/components/timesheet/absence-kind";
 import { LogTimeDialog } from "@/components/timesheet/log-time-dialog";
 import { TeamworkLogo } from "@/components/timesheet/teamwork-logo";
 import { Badge } from "@/components/ui/badge";
@@ -145,6 +146,10 @@ export function DaySection({
                     )}
                     {day.absence && (
                         <Badge className="max-w-48 bg-tw-purple text-white">
+                            <AbsenceIcon
+                                kind={day.absence.kind}
+                                data-icon="inline-start"
+                            />
                             <span className="truncate">{day.absence.label}</span>
                         </Badge>
                     )}
@@ -311,13 +316,20 @@ function LoggedTime({
                             </span>
                             <span className="flex items-center justify-end gap-1.5 text-right whitespace-nowrap tabular-nums">
                                 {formatDuration(entry.minutes)}
-                                {!entry.billable && (
-                                    <span
-                                        className="size-2 shrink-0 rounded-full bg-tw-indigo"
-                                        role="img"
-                                        aria-label="Non-billable"
-                                    />
-                                )}
+                                <span
+                                    className={cn(
+                                        "size-2 shrink-0 rounded-full",
+                                        entry.billable
+                                            ? "bg-tw-pink"
+                                            : "bg-tw-indigo",
+                                    )}
+                                    role="img"
+                                    aria-label={
+                                        entry.billable
+                                            ? "Billable"
+                                            : "Non-billable"
+                                    }
+                                />
                             </span>
                             <LoggedEntry entry={entry} />
                             <EditLoggedTime day={day} entry={entry} />
@@ -338,13 +350,27 @@ function LoggedTime({
                             <span className="whitespace-nowrap text-muted-foreground tabular-nums">
                                 {constant.start}–{constant.end}
                             </span>
-                            <span className="text-right whitespace-nowrap tabular-nums">
+                            <span className="flex items-center justify-end gap-1.5 text-right whitespace-nowrap tabular-nums">
                                 {formatDuration(
                                     minutesBetween(
                                         constant.start,
                                         constant.end,
                                     ) ?? 0,
                                 )}
+                                <span
+                                    className={cn(
+                                        "size-2 shrink-0 rounded-full",
+                                        constant.billable
+                                            ? "bg-tw-pink"
+                                            : "bg-tw-indigo",
+                                    )}
+                                    role="img"
+                                    aria-label={
+                                        constant.billable
+                                            ? "Billable"
+                                            : "Non-billable"
+                                    }
+                                />
                             </span>
                             <span className="min-w-0 flex-1">
                                 <span className="font-medium">

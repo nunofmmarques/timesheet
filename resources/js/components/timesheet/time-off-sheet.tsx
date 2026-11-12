@@ -1,6 +1,7 @@
 import { router, useForm } from '@inertiajs/react';
 import { PencilIcon, PlusIcon, Trash2Icon, TreePalmIcon } from 'lucide-react';
 import { useState } from 'react';
+import { AbsenceIcon } from '@/components/timesheet/absence-kind';
 import { Button } from '@/components/ui/button';
 import {
     Field,
@@ -68,18 +69,24 @@ export function TimeOffSheet({ absences }: { absences: TimeOff[] }) {
                                     key={absence.id}
                                     className="flex items-start gap-2 px-3 py-2 text-sm"
                                 >
-                                    <span className="min-w-0 flex-1">
-                                        <span className="font-medium">
-                                            {absence.label}
-                                        </span>
-                                        <span className="block text-muted-foreground">
-                                            {formatRange(
-                                                absence.startsOn,
-                                                absence.endsOn,
-                                            )}
-                                            {absence.kind !== 'other' &&
-                                                absence.note !== '' &&
-                                                ` · ${absence.note}`}
+                                    <span className="flex min-w-0 flex-1 items-start gap-2">
+                                        <AbsenceIcon
+                                            kind={absence.kind}
+                                            className="mt-0.5 size-4 shrink-0 text-tw-purple"
+                                        />
+                                        <span className="min-w-0">
+                                            <span className="font-medium">
+                                                {absence.label}
+                                            </span>
+                                            <span className="block text-muted-foreground">
+                                                {formatRange(
+                                                    absence.startsOn,
+                                                    absence.endsOn,
+                                                )}
+                                                {absence.kind !== 'other' &&
+                                                    absence.note !== '' &&
+                                                    ` · ${absence.note}`}
+                                            </span>
                                         </span>
                                     </span>
                                     <div className="flex shrink-0 items-center">
@@ -184,15 +191,34 @@ function TimeOffForm({
                     >
                         <SelectTrigger className="w-full">
                             <SelectValue>
-                                {(value: string | null) =>
-                                    KINDS.find((kind) => kind.value === value)
-                                        ?.label ?? 'Type'
-                                }
+                                {(value: string | null) => {
+                                    const kind = KINDS.find(
+                                        (item) => item.value === value,
+                                    );
+
+                                    if (kind === undefined) {
+                                        return 'Type';
+                                    }
+
+                                    return (
+                                        <span className="flex items-center gap-2">
+                                            <AbsenceIcon
+                                                kind={kind.value}
+                                                className="size-4 text-tw-purple"
+                                            />
+                                            {kind.label}
+                                        </span>
+                                    );
+                                }}
                             </SelectValue>
                         </SelectTrigger>
                         <SelectContent className="z-[60]">
                             {KINDS.map((kind) => (
                                 <SelectItem key={kind.value} value={kind.value}>
+                                    <AbsenceIcon
+                                        kind={kind.value}
+                                        className="size-4 text-tw-purple"
+                                    />
                                     {kind.label}
                                 </SelectItem>
                             ))}

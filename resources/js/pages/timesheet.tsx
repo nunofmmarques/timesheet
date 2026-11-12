@@ -181,8 +181,13 @@ export default function Timesheet({
                     </Empty>
                 )}
 
-                {days.length > 0 && (
-                    <LoggedChart days={days} from={from} to={to} />
+                {repositories.length > 0 && (
+                    <LoggedChart
+                        days={days}
+                        from={from}
+                        to={to}
+                        onMonth={visit}
+                    />
                 )}
 
                 <div className="flex flex-col gap-8">

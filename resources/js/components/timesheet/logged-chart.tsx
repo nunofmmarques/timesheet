@@ -1,44 +1,47 @@
-import { useId, useMemo, type MouseEvent, type MouseEventHandler } from 'react';
-import { Bar, BarChart, ReferenceLine, XAxis, YAxis } from 'recharts';
-import { TeamworkLogo } from '@/components/timesheet/teamwork-logo';
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { useId, useMemo, type MouseEvent, type MouseEventHandler } from "react";
+import { Bar, BarChart, ReferenceLine, XAxis, YAxis } from "recharts";
+import { AbsenceIcon } from "@/components/timesheet/absence-kind";
+import { TeamworkLogo } from "@/components/timesheet/teamwork-logo";
+import { Button } from "@/components/ui/button";
 import {
     Card,
     CardAction,
     CardContent,
+    CardFooter,
     CardHeader,
     CardTitle,
-} from '@/components/ui/card';
+} from "@/components/ui/card";
 import {
     ChartContainer,
     ChartTooltip,
-    ChartTooltipContent,
     type ChartConfig,
-} from '@/components/ui/chart';
-import { formatDuration, todayInLisbon } from '@/lib/timesheet';
-import type { TimesheetDay } from '@/types/timesheet';
+} from "@/components/ui/chart";
+import { formatDuration, todayInLisbon } from "@/lib/timesheet";
+import type { TimesheetDay } from "@/types/timesheet";
 
 const FULL_DAY = 8 * 60;
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 const MONTHS = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
 ] as const;
 
 const chartConfig = {
     minutes: {
-        label: 'Logged',
-        color: 'var(--color-tw-pink)',
+        label: "Logged",
+        color: "var(--color-tw-pink)",
     },
 } satisfies ChartConfig;
 
@@ -53,7 +56,7 @@ type ChartPoint = {
     nonBillable: number;
     weekend: boolean;
     today: boolean;
-    absence: string | null;
+    absence: { kind: string; label: string } | null;
 };
 
 type ColumnShapeProps = {
@@ -74,12 +77,14 @@ export function LoggedChart({
     days,
     from,
     to,
+    onMonth,
 }: {
     days: TimesheetDay[];
     from: string;
     to: string;
+    onMonth: (query: Record<string, string>) => void;
 }) {
-    const patternId = `weekend-${useId().replaceAll(':', '')}`;
+    const patternId = `weekend-${useId().replaceAll(":", "")}`;
     const points = useMemo(() => chartPoints(days, from, to), [days, from, to]);
     const byDate = useMemo(
         () => new Map(points.map((day) => [day.date, day])),
@@ -91,16 +96,119 @@ export function LoggedChart({
 
     return (
         <Card size="sm">
-            <CardHeader className="border-b">
-                <CardTitle className="flex items-center gap-2">
-                    <TeamworkLogo />
-                    Logged
+            <CardHeader className="border-b items-center">
+                <CardTitle className="flex items-center justify-between gap-1">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                        <TeamworkLogo />
+                        Teamwork
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="ghost"
+                            aria-label="Previous month"
+                            onClick={() => onMonth(monthQuery(from, -1))}
+                        >
+                            <ChevronLeftIcon />
+                        </Button>
+                        <span className="min-w-36 text-center">
+                            {monthTitle(from)}
+                        </span>
+                        <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="ghost"
+                            aria-label="Next month"
+                            onClick={() => onMonth(monthQuery(from, 1))}
+                        >
+                            <ChevronRightIcon />
+                        </Button>
+                    </div>
+                    <span className="font-medium tabular-nums flex items-center gap-1">
+                        <span className="text-xs text-muted-foreground">
+                            Total
+                        </span>
+                        {formatDuration(total)}
+                    </span>
                 </CardTitle>
-                <CardAction className="font-medium tabular-nums">
-                    {formatDuration(total)}
-                </CardAction>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
+                <ChartContainer
+                    config={chartConfig}
+                    className="aspect-auto h-60 w-full"
+                >
+                    <BarChart
+                        accessibilityLayer
+                        data={points}
+                        margin={{ top: 16, right: 28, left: 0, bottom: 0 }}
+                    >
+                        <defs>
+                            <pattern
+                                id={patternId}
+                                width="8"
+                                height="8"
+                                patternUnits="userSpaceOnUse"
+                                patternTransform="rotate(45)"
+                            >
+                                <rect
+                                    width="8"
+                                    height="8"
+                                    fill="var(--muted)"
+                                />
+                                <line
+                                    x1="0"
+                                    y1="0"
+                                    x2="0"
+                                    y2="8"
+                                    stroke="var(--muted-foreground)"
+                                    strokeOpacity="0.45"
+                                    strokeWidth="3"
+                                />
+                            </pattern>
+                        </defs>
+                        <XAxis
+                            dataKey="date"
+                            tickLine={false}
+                            axisLine={false}
+                            tickMargin={6}
+                            interval={0}
+                            height={compact ? 46 : 40}
+                            tick={(props) => (
+                                <DayTick
+                                    x={props.x}
+                                    y={props.y}
+                                    compact={compact}
+                                    point={byDate.get(
+                                        String(props.payload.value),
+                                    )}
+                                    onSelect={scrollToDay}
+                                />
+                            )}
+                        />
+                        <YAxis hide domain={[0, scale]} width={0} />
+                        <ChartTooltip cursor={false} content={LoggedTooltip} />
+                        <ReferenceLine
+                            y={FULL_DAY}
+                            stroke="var(--border)"
+                            strokeDasharray="4 4"
+                            label={{
+                                value: "8h",
+                                position: "right",
+                                fontSize: 10,
+                                fill: "var(--muted-foreground)",
+                            }}
+                        />
+                        <Bar
+                            dataKey="minutes"
+                            shape={(props: ColumnShapeProps) => (
+                                <ColumnShape {...props} patternId={patternId} />
+                            )}
+                        />
+                    </BarChart>
+                </ChartContainer>
+            </CardContent>
+            <CardFooter>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1.5">
                         <span className="size-2 rounded-sm bg-tw-pink" />
@@ -114,124 +222,12 @@ export function LoggedChart({
                         <span className="size-2 rounded-sm bg-tw-purple" />
                         Time off
                     </span>
+                    <span className="flex items-center gap-1.5">
+                        <span className="size-2 rounded-sm bg-tw-orange" />
+                        Today
+                    </span>
                 </div>
-                <ChartContainer
-                    config={chartConfig}
-                    className="aspect-auto h-60 w-full"
-                >
-                        <BarChart
-                            accessibilityLayer
-                            data={points}
-                            margin={{ top: 16, right: 28, left: 0, bottom: 0 }}
-                        >
-                            <defs>
-                                <pattern
-                                    id={patternId}
-                                    width="8"
-                                    height="8"
-                                    patternUnits="userSpaceOnUse"
-                                    patternTransform="rotate(45)"
-                                >
-                                    <rect
-                                        width="8"
-                                        height="8"
-                                        fill="var(--muted)"
-                                    />
-                                    <line
-                                        x1="0"
-                                        y1="0"
-                                        x2="0"
-                                        y2="8"
-                                        stroke="var(--muted-foreground)"
-                                        strokeOpacity="0.45"
-                                        strokeWidth="3"
-                                    />
-                                </pattern>
-                            </defs>
-                            <XAxis
-                                dataKey="date"
-                                tickLine={false}
-                                axisLine={false}
-                                tickMargin={6}
-                                interval={0}
-                                height={compact ? 46 : 40}
-                                tick={(props) => (
-                                    <DayTick
-                                        x={props.x}
-                                        y={props.y}
-                                        compact={compact}
-                                        point={byDate.get(
-                                            String(props.payload.value),
-                                        )}
-                                        onSelect={scrollToDay}
-                                    />
-                                )}
-                            />
-                            <YAxis hide domain={[0, scale]} width={0} />
-                            <ChartTooltip
-                                cursor={false}
-                                content={
-                                    <ChartTooltipContent
-                                        labelFormatter={(_label, payload) => {
-                                            const row = payload?.[0]?.payload as
-                                                | ChartPoint
-                                                | undefined;
-
-                                            return row?.label ?? '';
-                                        }}
-                                        formatter={(_value, _name, item) => {
-                                            const row = item.payload as
-                                                | ChartPoint
-                                                | undefined;
-                                            const nonBillable =
-                                                row?.nonBillable ?? 0;
-
-                                            return (
-                                                <span className="font-medium tabular-nums">
-                                                    {row?.absence
-                                                        ? row.absence
-                                                        : formatDuration(
-                                                              row?.minutes ??
-                                                                  Number(
-                                                                      _value,
-                                                                  ),
-                                                          )}
-                                                    {row?.absence &&
-                                                    (row?.minutes ?? 0) > 0
-                                                        ? ` · ${formatDuration(row.minutes)}`
-                                                        : ''}
-                                                    {nonBillable > 0
-                                                        ? ` · ${formatDuration(nonBillable)} non-billable`
-                                                        : ''}
-                                                </span>
-                                            );
-                                        }}
-                                    />
-                                }
-                            />
-                            <ReferenceLine
-                                y={FULL_DAY}
-                                stroke="var(--border)"
-                                strokeDasharray="4 4"
-                                label={{
-                                    value: '8h',
-                                    position: 'right',
-                                    fontSize: 10,
-                                    fill: 'var(--muted-foreground)',
-                                }}
-                            />
-                            <Bar
-                                dataKey="minutes"
-                                shape={(props: ColumnShapeProps) => (
-                                    <ColumnShape
-                                        {...props}
-                                        patternId={patternId}
-                                    />
-                                )}
-                            />
-                        </BarChart>
-                </ChartContainer>
-            </CardContent>
+            </CardFooter>
         </Card>
     );
 }
@@ -243,7 +239,12 @@ function chartPoints(
 ): ChartPoint[] {
     const logged = new Map(days.map((day) => [day.date, splitLogged(day)]));
     const absences = new Map(
-        days.map((day) => [day.date, day.absence?.label ?? null]),
+        days.map((day) => [
+            day.date,
+            day.absence
+                ? { kind: day.absence.kind, label: day.absence.label }
+                : null,
+        ]),
     );
     const dates = eachDate(from, to);
 
@@ -251,7 +252,13 @@ function chartPoints(
         return [...days]
             .reverse()
             .map((day) =>
-                point(day.date, splitLogged(day), day.absence?.label ?? null),
+                point(
+                    day.date,
+                    splitLogged(day),
+                    day.absence
+                        ? { kind: day.absence.kind, label: day.absence.label }
+                        : null,
+                ),
             );
     }
 
@@ -283,10 +290,67 @@ function emptyLogged(): LoggedSplit {
     return { minutes: 0, billable: 0, nonBillable: 0 };
 }
 
+function LoggedTooltip({
+    active,
+    payload,
+}: {
+    active?: boolean;
+    payload?: Array<{ payload?: ChartPoint }>;
+}) {
+    const row = payload?.[0]?.payload;
+
+    if (!active || row === undefined) {
+        return null;
+    }
+
+    const amounts = [
+        row.billable > 0
+            ? { label: "Billable", minutes: row.billable, color: "bg-tw-pink" }
+            : null,
+        row.nonBillable > 0
+            ? {
+                  label: "Non-billable",
+                  minutes: row.nonBillable,
+                  color: "bg-tw-indigo",
+              }
+            : null,
+    ].filter((amount) => amount !== null);
+
+    return (
+        <div className="grid min-w-32 items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
+            <div className="font-medium">{row.label}</div>
+            <div className="grid gap-1">
+                {row.absence && (
+                    <span className="flex items-center gap-1.5 font-medium">
+                        <AbsenceIcon
+                            kind={row.absence.kind}
+                            className="size-3.5 text-tw-purple"
+                        />
+                        {row.absence.label}
+                    </span>
+                )}
+                {amounts.map((amount) => (
+                    <span
+                        key={amount.label}
+                        className="flex items-center gap-1.5 font-medium tabular-nums"
+                    >
+                        <span
+                            className={`size-2 shrink-0 rounded-full ${amount.color}`}
+                            role="img"
+                            aria-label={amount.label}
+                        />
+                        {formatDuration(amount.minutes)}
+                    </span>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 function point(
     date: string,
     logged: LoggedSplit,
-    absence: string | null,
+    absence: { kind: string; label: string } | null,
 ): ChartPoint {
     const parsed = localDate(date);
     const weekday = WEEKDAYS[parsed.getDay()];
@@ -330,14 +394,51 @@ function isIsoDate(value: string): boolean {
 }
 
 function localDate(value: string): Date {
-    const [year, month, day] = value.split('-').map(Number);
+    const [year, month, day] = value.split("-").map(Number);
 
     return new Date(year, month - 1, day);
 }
 
+function monthQuery(from: string, delta: number): Record<string, string> {
+    const parsed = localDate(from);
+    const start = new Date(parsed.getFullYear(), parsed.getMonth() + delta, 1);
+    const end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
+    const nextFrom = isoDate(start);
+    const nextTo = isoDate(end);
+    const today = localDate(todayInLisbon());
+    const thisStart = isoDate(
+        new Date(today.getFullYear(), today.getMonth(), 1),
+    );
+    const thisEnd = isoDate(
+        new Date(today.getFullYear(), today.getMonth() + 1, 0),
+    );
+    const previous = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const previousStart = isoDate(previous);
+    const previousEnd = isoDate(
+        new Date(previous.getFullYear(), previous.getMonth() + 1, 0),
+    );
+
+    if (nextFrom === thisStart && nextTo === thisEnd) {
+        return { preset: "month" };
+    }
+
+    if (nextFrom === previousStart && nextTo === previousEnd) {
+        return { preset: "last-month" };
+    }
+
+    return { preset: "custom", from: nextFrom, to: nextTo };
+}
+
+function monthTitle(from: string): string {
+    return localDate(from).toLocaleDateString("en-GB", {
+        month: "long",
+        year: "numeric",
+    });
+}
+
 function isoDate(date: Date): string {
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
 
     return `${date.getFullYear()}-${month}-${day}`;
 }
@@ -348,8 +449,8 @@ function scrollToDay(date: string | undefined): void {
     }
 
     document.getElementById(`day-${date}`)?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
+        behavior: "smooth",
+        block: "start",
     });
 }
 
@@ -385,7 +486,7 @@ function ColumnShape({
     const nonBillableHeight =
         minutes > 0 ? (height * nonBillable) / minutes : 0;
     const billableHeight = Math.max(0, height - nonBillableHeight);
-    const billableFill = 'var(--color-tw-pink)';
+    const billableFill = "var(--color-tw-pink)";
     const slot =
         background?.width && background.height
             ? {
@@ -395,9 +496,15 @@ function ColumnShape({
                   height: background.height,
               }
             : null;
-    const weekend = payload?.weekend && slot && !payload.absence;
+    const column =
+        slot === null
+            ? null
+            : width > 0
+              ? { x, y: slot.y, width, height: slot.height }
+              : slot;
+    const weekend = payload?.weekend && column && !payload.absence;
     const today = payload?.today === true;
-    const absence = Boolean(payload?.absence) && slot;
+    const absence = Boolean(payload?.absence) && column;
 
     return (
         <g className="cursor-pointer">
@@ -411,35 +518,35 @@ function ColumnShape({
                     onClick={select}
                 />
             ) : null}
-            {today && !absence && slot && (
+            {today && !absence && column && (
                 <rect
-                    x={slot.x}
-                    y={slot.y}
-                    width={slot.width}
-                    height={slot.height}
-                    rx={6}
+                    x={column.x}
+                    y={column.y}
+                    width={column.width}
+                    height={column.height}
+                    rx={3}
                     fill="color-mix(in oklab, var(--color-tw-orange) 16%, transparent)"
                     pointerEvents="none"
                 />
             )}
-            {absence && slot && (
+            {absence && column && (
                 <rect
-                    x={slot.x}
-                    y={slot.y}
-                    width={slot.width}
-                    height={slot.height}
-                    rx={6}
-                    fill="color-mix(in oklab, var(--color-tw-purple) 42%, white)"
+                    x={column.x}
+                    y={column.y}
+                    width={column.width}
+                    height={column.height}
+                    rx={3}
+                    fill="color-mix(in oklab, var(--color-tw-purple) 10%, transparent)"
                     {...events}
                 />
             )}
-            {weekend && (
+            {weekend && column && (
                 <rect
-                    x={background.x}
-                    y={background.y}
-                    width={background.width}
-                    height={background.height}
-                    rx={6}
+                    x={column.x}
+                    y={column.y}
+                    width={column.width}
+                    height={column.height}
+                    rx={3}
                     fill={`url(#${patternId})`}
                     {...events}
                 />
@@ -474,20 +581,20 @@ function ColumnShape({
                     {...events}
                 />
             )}
-            {(today || absence) && slot && (
+            {(today || absence) && column && (
                 <rect
-                    x={slot.x}
-                    y={slot.y}
-                    width={slot.width}
-                    height={slot.height}
-                    rx={6}
+                    x={column.x}
+                    y={column.y}
+                    width={column.width}
+                    height={column.height}
+                    rx={3}
                     fill="none"
                     stroke={
                         today
-                            ? 'var(--color-tw-orange)'
-                            : 'var(--color-tw-purple)'
+                            ? "var(--color-tw-orange)"
+                            : "var(--color-tw-purple)"
                     }
-                    strokeWidth={1.5}
+                    strokeWidth={1}
                     pointerEvents="none"
                 />
             )}
@@ -514,7 +621,7 @@ function TopBar({
     onMouseLeave?: MouseEventHandler<SVGElement>;
     onClick?: MouseEventHandler<SVGElement>;
 }) {
-    const radius = Math.min(6, width / 2, height);
+    const radius = Math.min(3, width / 2, height);
     const path = [
         `M ${x} ${y + height}`,
         `L ${x} ${y + radius}`,
@@ -522,8 +629,8 @@ function TopBar({
         `L ${x + width - radius} ${y}`,
         `Q ${x + width} ${y} ${x + width} ${y + radius}`,
         `L ${x + width} ${y + height}`,
-        'Z',
-    ].join(' ');
+        "Z",
+    ].join(" ");
 
     return (
         <path
@@ -556,10 +663,10 @@ function DayTick({
             textAnchor="middle"
             className={
                 point?.today
-                    ? 'cursor-pointer fill-tw-orange text-[10px] font-medium'
+                    ? "cursor-pointer fill-tw-orange text-[10px] font-medium"
                     : point?.absence
-                      ? 'cursor-pointer fill-tw-purple text-[10px] font-medium'
-                      : 'cursor-pointer fill-muted-foreground text-[10px]'
+                      ? "cursor-pointer fill-tw-purple text-[10px] font-medium"
+                      : "cursor-pointer fill-muted-foreground text-[10px]"
             }
             onClick={() => {
                 if (point !== undefined) {
@@ -581,7 +688,7 @@ function DayTick({
                 </>
             ) : (
                 <tspan x={x} dy={12}>
-                    {point ? `${point.day} ${point.month}` : ''}
+                    {point ? `${point.day} ${point.month}` : ""}
                 </tspan>
             )}
         </text>
