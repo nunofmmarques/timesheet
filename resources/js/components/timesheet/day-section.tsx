@@ -7,6 +7,7 @@ import {
     GitBranchIcon,
     GitCommitHorizontalIcon,
     PencilIcon,
+    RepeatIcon,
     SearchIcon,
     TreePalmIcon,
 } from "lucide-react";
@@ -181,14 +182,6 @@ export function DaySection({
                         <EllipsisIcon />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                        {absenceRecord !== null && (
-                            <DropdownMenuItem
-                                onClick={() => setTimeOffOpen("edit")}
-                            >
-                                <PencilIcon />
-                                Edit time off
-                            </DropdownMenuItem>
-                        )}
                         <DropdownMenuItem onClick={() => setTimeOffOpen("add")}>
                             <TreePalmIcon />
                             Add time off
@@ -206,19 +199,13 @@ export function DaySection({
             >
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>
-                            {timeOffOpen === "edit"
-                                ? "Edit time off"
-                                : "Add time off"}
-                        </DialogTitle>
+                        <DialogTitle>Add time off</DialogTitle>
                         <DialogDescription>{day.label}</DialogDescription>
                     </DialogHeader>
                     {timeOffOpen !== null && (
                         <TimeOffForm
                             key={`${timeOffOpen}-${absenceRecord?.id ?? day.date}`}
-                            absence={
-                                timeOffOpen === "edit" ? absenceRecord : null
-                            }
+                            absence={null}
                             initialDate={day.date}
                             onDone={() => setTimeOffOpen(null)}
                         />
@@ -226,126 +213,145 @@ export function DaySection({
                 </DialogContent>
             </Dialog>
 
-            {day.absence !== null && <AbsenceTime absence={day.absence} />}
+            <div className="overflow-hidden rounded-xl bg-card ring-1 ring-border">
+                {day.absence !== null && (
+                    <AbsenceTime
+                        absence={day.absence}
+                        record={absenceRecord}
+                        dateLabel={day.label}
+                    />
+                )}
 
-            {(day.logged.length > 0 || pending.length > 0) && (
-                <LoggedTime day={day} fullDay={fullDay} pending={pending} />
-            )}
+                {pending.length > 0 && (
+                    <ConstantTime day={day} pending={pending} />
+                )}
 
-            {rows.length > 0 && (
-                <Collapsible
-                    defaultOpen={!fullDay}
-                    className="overflow-hidden rounded-xl bg-muted/50 ring-1 ring-foreground/10"
-                >
-                    <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-sm font-medium">
-                        <GitCommitHorizontalIcon className="size-4" />
-                        Git
-                        <ChevronDownIcon className="ml-auto size-4 transition-transform in-aria-expanded:rotate-180" />
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                        <div className="flex flex-col divide-y border-t bg-card">
-                            {rows.map((row) => (
-                                <Collapsible key={row.key}>
-                                    <div className="flex items-center">
-                                        <CollapsibleTrigger
-                                            render={
-                                                <Button
-                                                    variant="ghost"
-                                                    className={cn(
-                                                        contentGrid,
-                                                        "h-auto min-w-0 flex-1 justify-start rounded-none border-0 px-3 py-2 text-left font-normal whitespace-normal",
-                                                    )}
-                                                />
-                                            }
-                                        >
-                                            <span className="whitespace-nowrap text-muted-foreground tabular-nums">
-                                                {row.meta}
-                                            </span>
-                                            <span className="text-right whitespace-nowrap tabular-nums">
-                                                {row.minutes > 0 && (
-                                                    <>
-                                                        <span className="text-muted-foreground">
-                                                            to log{" "}
-                                                        </span>
-                                                        {formatDuration(
-                                                            row.minutes,
+                <LoggedTime day={day} />
+
+                {rows.length > 0 && (
+                    <Collapsible
+                        defaultOpen={!fullDay}
+                        className="overflow-hidden bg-muted/50 ring-1 ring-foreground/10"
+                    >
+                        <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-sm font-medium">
+                            <GitCommitHorizontalIcon className="size-4" />
+                            Git
+                            <ChevronDownIcon className="ml-auto size-4 transition-transform in-aria-expanded:rotate-180" />
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                            <div className="flex flex-col divide-y border-t bg-card">
+                                {rows.map((row) => (
+                                    <Collapsible key={row.key}>
+                                        <div className="flex items-center">
+                                            <CollapsibleTrigger
+                                                render={
+                                                    <Button
+                                                        variant="ghost"
+                                                        className={cn(
+                                                            contentGrid,
+                                                            "h-auto min-w-0 flex-1 justify-start rounded-none border-0 px-3 py-2 text-left font-normal whitespace-normal",
                                                         )}
-                                                    </>
-                                                )}
-                                            </span>
-                                            <span className="flex min-w-0 items-center gap-2">
-                                                <span className="shrink-0 font-medium">
-                                                    {row.label}
+                                                    />
+                                                }
+                                            >
+                                                <span className="whitespace-nowrap text-muted-foreground tabular-nums">
+                                                    {row.meta}
                                                 </span>
-                                                <BranchMark
-                                                    branches={row.branches}
-                                                />
-                                                {row.teamworkProjectName !==
-                                                    null && (
-                                                    <span className="flex min-w-0 items-center gap-1 text-muted-foreground">
-                                                        <TeamworkLogo
-                                                            variant="transparent"
-                                                            className="size-3.5"
-                                                        />
-                                                        <span className="truncate">
-                                                            {
-                                                                row.teamworkProjectName
-                                                            }
-                                                        </span>
+                                                <span className="text-right whitespace-nowrap tabular-nums">
+                                                    {row.minutes > 0 && (
+                                                        <>
+                                                            <span className="text-muted-foreground">
+                                                                to log{" "}
+                                                            </span>
+                                                            {formatDuration(
+                                                                row.minutes,
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </span>
+                                                <span className="flex min-w-0 items-center gap-2">
+                                                    <span className="shrink-0 font-medium">
+                                                        {row.label}
                                                     </span>
-                                                )}
-                                            </span>
-                                            <ChevronDownIcon className="transition-transform in-aria-expanded:rotate-180" />
-                                        </CollapsibleTrigger>
-                                        <TeamworkLink
-                                            rowKey={row.key}
-                                            label={row.label}
-                                            date={day.date}
-                                            dateLabel={day.label}
-                                            start={row.start}
-                                            end={row.end}
-                                            minutes={row.minutes}
-                                            commits={row.commits}
-                                            logged={day.logged}
-                                            repositoryId={row.repositoryId}
-                                            projectId={row.teamworkProjectId}
-                                            projectName={
-                                                row.teamworkProjectName
-                                            }
-                                            projects={projects}
-                                            canLink={
-                                                teamworkConfigured &&
-                                                teamworkError === null
-                                            }
-                                        />
-                                    </div>
-                                    <CollapsibleContent className="bg-muted/40 px-3 py-2">
-                                        <CommitList
-                                            commits={row.commits}
-                                            showBranch={row.branches.length > 1}
-                                        />
-                                    </CollapsibleContent>
-                                </Collapsible>
-                            ))}
-                        </div>
-                    </CollapsibleContent>
-                </Collapsible>
-            )}
+                                                    <BranchMark
+                                                        branches={row.branches}
+                                                    />
+                                                    {row.teamworkProjectName !==
+                                                        null && (
+                                                        <span className="flex min-w-0 items-center gap-1 text-muted-foreground">
+                                                            <TeamworkLogo
+                                                                variant="transparent"
+                                                                className="size-3.5"
+                                                            />
+                                                            <span className="truncate">
+                                                                {
+                                                                    row.teamworkProjectName
+                                                                }
+                                                            </span>
+                                                        </span>
+                                                    )}
+                                                </span>
+                                                <ChevronDownIcon className="transition-transform in-aria-expanded:rotate-180" />
+                                            </CollapsibleTrigger>
+                                            <TeamworkLink
+                                                rowKey={row.key}
+                                                label={row.label}
+                                                date={day.date}
+                                                dateLabel={day.label}
+                                                start={row.start}
+                                                end={row.end}
+                                                minutes={row.minutes}
+                                                commits={row.commits}
+                                                logged={day.logged}
+                                                repositoryId={row.repositoryId}
+                                                projectId={
+                                                    row.teamworkProjectId
+                                                }
+                                                projectName={
+                                                    row.teamworkProjectName
+                                                }
+                                                projects={projects}
+                                                canLink={
+                                                    teamworkConfigured &&
+                                                    teamworkError === null
+                                                }
+                                            />
+                                        </div>
+                                        <CollapsibleContent className="bg-muted/40 px-3 py-2">
+                                            <CommitList
+                                                commits={row.commits}
+                                                showBranch={
+                                                    row.branches.length > 1
+                                                }
+                                            />
+                                        </CollapsibleContent>
+                                    </Collapsible>
+                                ))}
+                            </div>
+                        </CollapsibleContent>
+                    </Collapsible>
+                )}
+            </div>
         </section>
     );
 }
 
 function AbsenceTime({
     absence,
+    record,
+    dateLabel,
 }: {
     absence: NonNullable<TimesheetDay["absence"]>;
+    record: TimeOff | null;
+    dateLabel: string;
 }) {
     const span = absenceSpan(absence.part);
     const part = absencePartLabel(absence.part);
+    const [editing, setEditing] = useState(false);
 
     return (
-        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-tw-purple/30">
-            <div className="flex items-center gap-2 bg-tw-purple/10 px-3 py-2 text-sm font-medium text-tw-purple">
+        <div>
+            <div className="flex items-center gap-2 bg-muted/50 px-3 py-2 text-sm font-medium ring-1 ring-foreground/10">
                 <AbsenceIcon kind={absence.kind} className="size-4" />
                 Absence
             </div>
@@ -354,186 +360,212 @@ function AbsenceTime({
                     <span className="whitespace-nowrap text-muted-foreground tabular-nums">
                         {span.label}
                     </span>
-                    <span className="text-right whitespace-nowrap tabular-nums">
+                    <span className="flex items-center justify-end gap-1.5 text-right whitespace-nowrap tabular-nums">
                         {formatDuration(span.minutes)}
+                        <AbsenceIcon kind={absence.kind} className="size-3" />
                     </span>
                     <span className="min-w-0 truncate font-medium">
                         {absence.label}
-                        {part ? ` · ${part}` : ""}
+                        <span className="font-normal text-muted-foreground">
+                            {part ? ` · ${part}` : ""}
+                        </span>
                     </span>
-                    <span />
+                    {record !== null && (
+                        <span className="self-center">
+                            <Button
+                                type="button"
+                                size="icon-sm"
+                                variant="ghost"
+                                aria-label={`Edit ${absence.label}`}
+                                onClick={() => setEditing(true)}
+                            >
+                                <PencilIcon />
+                            </Button>
+                        </span>
+                    )}
                 </li>
+            </ul>
+            <Dialog open={editing} onOpenChange={setEditing}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Edit time off</DialogTitle>
+                        <DialogDescription>{dateLabel}</DialogDescription>
+                    </DialogHeader>
+                    {editing && record !== null && (
+                        <TimeOffForm
+                            key={record.id}
+                            absence={record}
+                            onDone={() => setEditing(false)}
+                        />
+                    )}
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
+}
+
+function ConstantTime({
+    day,
+    pending,
+}: {
+    day: TimesheetDay;
+    pending: ConstantTask[];
+}) {
+    return (
+        <div>
+            <div className="flex items-center gap-2 bg-muted/50 px-3 py-2 text-sm font-medium ring-1 ring-foreground/10">
+                <RepeatIcon className="size-4" />
+                Constants
+            </div>
+            <ul className="flex flex-col divide-y border-t">
+                {pending.map((constant) => (
+                    <li
+                        key={constant.id}
+                        className={cn(contentGrid, "px-3 py-2 text-sm")}
+                    >
+                        <span className="whitespace-nowrap text-muted-foreground tabular-nums">
+                            {constant.start}–{constant.end}
+                        </span>
+                        <span className="flex items-center justify-end gap-1.5 text-right whitespace-nowrap tabular-nums">
+                            {formatDuration(
+                                minutesBetween(constant.start, constant.end) ??
+                                    0,
+                            )}
+                            <span
+                                className={cn(
+                                    "size-2 shrink-0 rounded-full",
+                                    constant.billable
+                                        ? "bg-tw-pink"
+                                        : "bg-tw-indigo",
+                                )}
+                                role="img"
+                                aria-label={
+                                    constant.billable
+                                        ? "Billable"
+                                        : "Non-billable"
+                                }
+                            />
+                        </span>
+                        <span className="min-w-0">
+                            <span className="font-medium">
+                                {constant.projectName}
+                            </span>
+                            <span className="text-muted-foreground">
+                                {" "}
+                                · {constant.taskName}
+                            </span>
+                            {!constant.billable && (
+                                <span className="text-muted-foreground">
+                                    {" "}
+                                    · Non-billable
+                                </span>
+                            )}
+                        </span>
+                        <div className="flex shrink-0 items-center gap-1">
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                aria-label={`Ignore ${constant.taskName} on ${day.label}`}
+                                onClick={() =>
+                                    router.post(
+                                        `/constants/${constant.id}/skips`,
+                                        { date: day.date },
+                                        { preserveScroll: true },
+                                    )
+                                }
+                            >
+                                Ignore
+                            </Button>
+                            <ConstantLogButton
+                                constant={constant}
+                                date={day.date}
+                            />
+                        </div>
+                    </li>
+                ))}
             </ul>
         </div>
     );
 }
 
-function LoggedTime({
-    day,
-    fullDay,
-    pending,
-}: {
-    day: TimesheetDay;
-    fullDay: boolean;
-    pending: ConstantTask[];
-}) {
-    return (
-        <div
-            className={
-                fullDay
-                    ? "overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10"
-                    : "overflow-hidden rounded-xl bg-card ring-1 ring-tw-slate"
-            }
-        >
-            <div
-                className={
-                    fullDay
-                        ? "flex items-center justify-between gap-3 px-3 py-2"
-                        : "flex items-center justify-between gap-3 bg-tw-slate  px-3 py-2 text-white"
-                }
-            >
-                <p className="flex items-center gap-2 text-sm font-medium">
-                    <TeamworkLogo variant={fullDay ? "slate" : "white"} />
-                    Teamwork
-                </p>
-                <p className="text-sm font-medium tabular-nums">
-                    {formatDuration(day.loggedMinutes)}
-                </p>
-            </div>
-            {day.logged.length > 0 && (
-                <ul className="flex flex-col divide-y border-t">
-                    {day.logged.map((entry) => {
-                        const start = minutesFromClock(entry.time ?? "");
-                        const end =
-                            start === null ? null : start + entry.minutes;
+function LoggedTime({ day }: { day: TimesheetDay }) {
+    const fullDay = day.loggedMinutes >= 8 * 60;
+    const hasTime = day.loggedMinutes > 0;
 
-                        return (
-                            <li
-                                key={entry.id}
-                                className={cn(
-                                    contentGrid,
-                                    "items-baseline px-3 py-2 text-sm",
-                                )}
-                            >
-                                <span className="whitespace-nowrap text-muted-foreground tabular-nums">
-                                    {timeRange(entry.time, entry.minutes)}
-                                </span>
-                                <span className="flex items-center justify-end gap-1.5 text-right whitespace-nowrap tabular-nums">
-                                    {formatDuration(entry.minutes)}
-                                    <span
-                                        className={cn(
-                                            "size-2 shrink-0 rounded-full",
-                                            entry.billable
-                                                ? "bg-tw-pink"
-                                                : "bg-tw-indigo",
-                                        )}
-                                        role="img"
-                                        aria-label={
-                                            entry.billable
-                                                ? "Billable"
-                                                : "Non-billable"
-                                        }
-                                    />
-                                </span>
-                                <span className="min-w-0">
-                                    <LoggedEntry entry={entry} />
-                                    <OverlapNote
-                                        message={overlapMessage(
-                                            day.absence,
-                                            start,
-                                            end,
-                                        )}
-                                    />
-                                </span>
-                                <EditLoggedTime day={day} entry={entry} />
-                            </li>
-                        );
-                    })}
-                </ul>
-            )}
-            {pending.length > 0 && (
-                <ul className="flex flex-col divide-y border-t">
-                    {pending.map((constant) => (
-                        <li
-                            key={constant.id}
-                            className={cn(
-                                contentGrid,
-                                "bg-muted/40 px-3 py-2 text-sm",
-                            )}
-                        >
-                            <span className="whitespace-nowrap text-muted-foreground tabular-nums">
-                                {constant.start}–{constant.end}
-                            </span>
-                            <span className="flex items-center justify-end gap-1.5 text-right whitespace-nowrap tabular-nums">
-                                {formatDuration(
-                                    minutesBetween(
-                                        constant.start,
-                                        constant.end,
-                                    ) ?? 0,
-                                )}
-                                <span
+    return (
+        <Collapsible
+            defaultOpen={!hasTime}
+            className="overflow-hidden bg-muted/50 ring-1 ring-foreground/10"
+        >
+            <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-sm font-medium">
+                <TeamworkLogo variant="transparent" />
+                <span className="text-tw-slate">Teamwork</span>
+                {!fullDay && hasTime && (
+                    <span className="tabular-nums text-muted-foreground">
+                        {formatDuration(day.loggedMinutes)}
+                    </span>
+                )}
+                <ChevronDownIcon className="ml-auto size-4 transition-transform in-aria-expanded:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+                {day.logged.length > 0 ? (
+                    <ul className="flex flex-col divide-y border-t bg-card">
+                        {day.logged.map((entry) => {
+                            const start = minutesFromClock(entry.time ?? "");
+                            const end =
+                                start === null ? null : start + entry.minutes;
+
+                            return (
+                                <li
+                                    key={entry.id}
                                     className={cn(
-                                        "size-2 shrink-0 rounded-full",
-                                        constant.billable
-                                            ? "bg-tw-pink"
-                                            : "bg-tw-indigo",
+                                        contentGrid,
+                                        "items-baseline px-3 py-2 text-sm",
                                     )}
-                                    role="img"
-                                    aria-label={
-                                        constant.billable
-                                            ? "Billable"
-                                            : "Non-billable"
-                                    }
-                                />
-                            </span>
-                            <span className="min-w-0 flex-1">
-                                <span className="font-medium">
-                                    {constant.projectName}
-                                </span>
-                                <span className="text-muted-foreground">
-                                    {" "}
-                                    · {constant.taskName}
-                                </span>
-                                {!constant.billable && (
-                                    <span className="text-muted-foreground">
-                                        {" "}
-                                        · Non-billable
-                                    </span>
-                                )}
-                                <OverlapNote
-                                    message={overlapMessage(
-                                        day.absence,
-                                        minutesFromClock(constant.start),
-                                        minutesFromClock(constant.end),
-                                    )}
-                                />
-                            </span>
-                            <div className="flex shrink-0 items-center gap-1">
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="ghost"
-                                    aria-label={`Ignore ${constant.taskName} on ${day.label}`}
-                                    onClick={() =>
-                                        router.post(
-                                            `/constants/${constant.id}/skips`,
-                                            { date: day.date },
-                                            { preserveScroll: true },
-                                        )
-                                    }
                                 >
-                                    Ignore
-                                </Button>
-                                <ConstantLogButton
-                                    constant={constant}
-                                    date={day.date}
-                                />
-                            </div>
-                        </li>
-                    ))}
-                </ul>
-            )}
-        </div>
+                                    <span className="whitespace-nowrap text-muted-foreground tabular-nums">
+                                        {timeRange(entry.time, entry.minutes)}
+                                    </span>
+                                    <span className="flex items-center justify-end gap-1.5 text-right whitespace-nowrap tabular-nums">
+                                        {formatDuration(entry.minutes)}
+                                        <span
+                                            className={cn(
+                                                "size-2 shrink-0 rounded-full",
+                                                entry.billable
+                                                    ? "bg-tw-pink"
+                                                    : "bg-tw-indigo",
+                                            )}
+                                            role="img"
+                                            aria-label={
+                                                entry.billable
+                                                    ? "Billable"
+                                                    : "Non-billable"
+                                            }
+                                        />
+                                    </span>
+                                    <span className="min-w-0">
+                                        <LoggedEntry entry={entry} />
+                                        <OverlapNote
+                                            message={overlapMessage(
+                                                day.absence,
+                                                start,
+                                                end,
+                                            )}
+                                        />
+                                    </span>
+                                    <EditLoggedTime day={day} entry={entry} />
+                                </li>
+                            );
+                        })}
+                    </ul>
+                ) : (
+                    <p className="border-t bg-card px-3 py-2 text-sm text-muted-foreground">
+                        No time logged
+                    </p>
+                )}
+            </CollapsibleContent>
+        </Collapsible>
     );
 }
 
