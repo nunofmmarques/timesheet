@@ -3,14 +3,20 @@ import {
     CheckIcon,
     ChevronDownIcon,
     ClockIcon,
+    EllipsisIcon,
     GitBranchIcon,
     GitCommitHorizontalIcon,
     PencilIcon,
     SearchIcon,
+    TreePalmIcon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { AbsenceIcon } from "@/components/timesheet/absence-kind";
+import {
+    AbsenceIcon,
+    absencePartLabel,
+} from "@/components/timesheet/absence-kind";
 import { LogTimeDialog } from "@/components/timesheet/log-time-dialog";
+import { TimeOffForm } from "@/components/timesheet/time-off-sheet";
 import { TeamworkLogo } from "@/components/timesheet/teamwork-logo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +32,12 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Field, FieldLabel } from "@/components/ui/field";
 import {
     InputGroup,
@@ -37,9 +49,11 @@ import { Spinner } from "@/components/ui/spinner";
 import { formatDuration, todayInLisbon } from "@/lib/timesheet";
 import { cn } from "@/lib/utils";
 import type {
+    AbsencePart,
     ConstantTask,
     RepositoryRecord,
     TeamworkProject,
+    TimeOff,
     TimesheetCommit,
     TimesheetDay,
     TimesheetLog,
@@ -56,6 +70,7 @@ export function DaySection({
     teamworkConfigured,
     teamworkError,
     constants,
+    absences,
 }: {
     day: TimesheetDay;
     repositories: RepositoryRecord[];
@@ -63,6 +78,7 @@ export function DaySection({
     teamworkConfigured: boolean;
     teamworkError: string | null;
     constants: ConstantTask[];
+    absences: TimeOff[];
 }) {
     const rows =
         day.blocks.length > 0
@@ -114,25 +130,25 @@ export function DaySection({
 
     const fullDay = day.loggedMinutes >= 8 * 60;
     const today = day.date === todayInLisbon();
-    const pending =
+    const absenceRecord =
         day.absence === null
-            ? constants.filter(
-                  (constant) =>
-                      constant.weekday === isoWeekday(day.date) &&
-                      !constant.skippedDates.includes(day.date) &&
-                      !day.logged.some((entry) => covers(entry, constant)),
-              )
-            : [];
-    const onlyTimeOff =
-        day.absence !== null && rows.length === 0 && day.logged.length === 0;
-
+            ? null
+            : (absences.find((item) => item.id === day.absence?.id) ?? null);
+    const [timeOffOpen, setTimeOffOpen] = useState<"add" | "edit" | null>(null);
+    const pending = constants.filter(
+        (constant) =>
+            constant.weekday === isoWeekday(day.date) &&
+            !constant.skippedDates.includes(day.date) &&
+            !day.logged.some((entry) => covers(entry, constant)) &&
+            !absenceCovers(day.absence, constant),
+    );
     return (
         <section
             id={`day-${day.date}`}
             className="flex scroll-mt-6 flex-col gap-3"
         >
-            <div className="flex items-baseline justify-between gap-3">
-                <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
                     <h2
                         className={cn(
                             "font-heading text-base font-medium",
@@ -144,15 +160,6 @@ export function DaySection({
                     {today && (
                         <Badge className="bg-tw-orange text-white">Today</Badge>
                     )}
-                    {day.absence && (
-                        <Badge className="max-w-48 bg-tw-purple text-white">
-                            <AbsenceIcon
-                                kind={day.absence.kind}
-                                data-icon="inline-start"
-                            />
-                            <span className="truncate">{day.absence.label}</span>
-                        </Badge>
-                    )}
                     {fullDay && (
                         <Badge className="bg-green-600 text-white">
                             <CheckIcon data-icon="inline-start" />
@@ -160,9 +167,68 @@ export function DaySection({
                         </Badge>
                     )}
                 </div>
+                <DropdownMenu>
+                    <DropdownMenuTrigger
+                        render={
+                            <Button
+                                type="button"
+                                size="icon-sm"
+                                variant="ghost"
+                                aria-label={`More for ${day.label}`}
+                            />
+                        }
+                    >
+                        <EllipsisIcon />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        {absenceRecord !== null && (
+                            <DropdownMenuItem
+                                onClick={() => setTimeOffOpen("edit")}
+                            >
+                                <PencilIcon />
+                                Edit time off
+                            </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem onClick={() => setTimeOffOpen("add")}>
+                            <TreePalmIcon />
+                            Add time off
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
+            <Dialog
+                open={timeOffOpen !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setTimeOffOpen(null);
+                    }
+                }}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>
+                            {timeOffOpen === "edit"
+                                ? "Edit time off"
+                                : "Add time off"}
+                        </DialogTitle>
+                        <DialogDescription>{day.label}</DialogDescription>
+                    </DialogHeader>
+                    {timeOffOpen !== null && (
+                        <TimeOffForm
+                            key={`${timeOffOpen}-${absenceRecord?.id ?? day.date}`}
+                            absence={
+                                timeOffOpen === "edit" ? absenceRecord : null
+                            }
+                            initialDate={day.date}
+                            onDone={() => setTimeOffOpen(null)}
+                        />
+                    )}
+                </DialogContent>
+            </Dialog>
 
-            {!onlyTimeOff && (
+            {day.absence !== null && <AbsenceTime absence={day.absence} />}
+
+            {(day.logged.length > 0 || pending.length > 0) && (
                 <LoggedTime day={day} fullDay={fullDay} pending={pending} />
             )}
 
@@ -269,6 +335,39 @@ export function DaySection({
     );
 }
 
+function AbsenceTime({
+    absence,
+}: {
+    absence: NonNullable<TimesheetDay["absence"]>;
+}) {
+    const span = absenceSpan(absence.part);
+    const part = absencePartLabel(absence.part);
+
+    return (
+        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-tw-purple/30">
+            <div className="flex items-center gap-2 bg-tw-purple/10 px-3 py-2 text-sm font-medium text-tw-purple">
+                <AbsenceIcon kind={absence.kind} className="size-4" />
+                Absence
+            </div>
+            <ul className="flex flex-col border-t">
+                <li className={cn(contentGrid, "px-3 py-2 text-sm")}>
+                    <span className="whitespace-nowrap text-muted-foreground tabular-nums">
+                        {span.label}
+                    </span>
+                    <span className="text-right whitespace-nowrap tabular-nums">
+                        {formatDuration(span.minutes)}
+                    </span>
+                    <span className="min-w-0 truncate font-medium">
+                        {absence.label}
+                        {part ? ` · ${part}` : ""}
+                    </span>
+                    <span />
+                </li>
+            </ul>
+        </div>
+    );
+}
+
 function LoggedTime({
     day,
     fullDay,
@@ -282,15 +381,15 @@ function LoggedTime({
         <div
             className={
                 fullDay
-                    ? "overflow-hidden rounded-xl bg-card ring-1 ring-tw-slate"
-                    : "overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10"
+                    ? "overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10"
+                    : "overflow-hidden rounded-xl bg-card ring-1 ring-tw-slate"
             }
         >
             <div
                 className={
                     fullDay
-                        ? "flex items-center justify-between gap-3 bg-tw-slate px-3 py-2 text-white"
-                        : "flex items-center justify-between gap-3 px-3 py-2"
+                        ? "flex items-center justify-between gap-3 px-3 py-2"
+                        : "flex items-center justify-between gap-3 bg-tw-slate  px-3 py-2 text-white"
                 }
             >
                 <p className="flex items-center gap-2 text-sm font-medium">
@@ -303,38 +402,53 @@ function LoggedTime({
             </div>
             {day.logged.length > 0 && (
                 <ul className="flex flex-col divide-y border-t">
-                    {day.logged.map((entry) => (
-                        <li
-                            key={entry.id}
-                            className={cn(
-                                contentGrid,
-                                "items-baseline px-3 py-2 text-sm",
-                            )}
-                        >
-                            <span className="whitespace-nowrap text-muted-foreground tabular-nums">
-                                {timeRange(entry.time, entry.minutes)}
-                            </span>
-                            <span className="flex items-center justify-end gap-1.5 text-right whitespace-nowrap tabular-nums">
-                                {formatDuration(entry.minutes)}
-                                <span
-                                    className={cn(
-                                        "size-2 shrink-0 rounded-full",
-                                        entry.billable
-                                            ? "bg-tw-pink"
-                                            : "bg-tw-indigo",
-                                    )}
-                                    role="img"
-                                    aria-label={
-                                        entry.billable
-                                            ? "Billable"
-                                            : "Non-billable"
-                                    }
-                                />
-                            </span>
-                            <LoggedEntry entry={entry} />
-                            <EditLoggedTime day={day} entry={entry} />
-                        </li>
-                    ))}
+                    {day.logged.map((entry) => {
+                        const start = minutesFromClock(entry.time ?? "");
+                        const end =
+                            start === null ? null : start + entry.minutes;
+
+                        return (
+                            <li
+                                key={entry.id}
+                                className={cn(
+                                    contentGrid,
+                                    "items-baseline px-3 py-2 text-sm",
+                                )}
+                            >
+                                <span className="whitespace-nowrap text-muted-foreground tabular-nums">
+                                    {timeRange(entry.time, entry.minutes)}
+                                </span>
+                                <span className="flex items-center justify-end gap-1.5 text-right whitespace-nowrap tabular-nums">
+                                    {formatDuration(entry.minutes)}
+                                    <span
+                                        className={cn(
+                                            "size-2 shrink-0 rounded-full",
+                                            entry.billable
+                                                ? "bg-tw-pink"
+                                                : "bg-tw-indigo",
+                                        )}
+                                        role="img"
+                                        aria-label={
+                                            entry.billable
+                                                ? "Billable"
+                                                : "Non-billable"
+                                        }
+                                    />
+                                </span>
+                                <span className="min-w-0">
+                                    <LoggedEntry entry={entry} />
+                                    <OverlapNote
+                                        message={overlapMessage(
+                                            day.absence,
+                                            start,
+                                            end,
+                                        )}
+                                    />
+                                </span>
+                                <EditLoggedTime day={day} entry={entry} />
+                            </li>
+                        );
+                    })}
                 </ul>
             )}
             {pending.length > 0 && (
@@ -386,6 +500,13 @@ function LoggedTime({
                                         · Non-billable
                                     </span>
                                 )}
+                                <OverlapNote
+                                    message={overlapMessage(
+                                        day.absence,
+                                        minutesFromClock(constant.start),
+                                        minutesFromClock(constant.end),
+                                    )}
+                                />
                             </span>
                             <div className="flex shrink-0 items-center gap-1">
                                 <Button
@@ -738,6 +859,95 @@ function LinkProject({
             </Dialog>
         </div>
     );
+}
+
+function absenceSpan(part: AbsencePart): {
+    start: number;
+    end: number;
+    minutes: number;
+    label: string;
+} {
+    if (part === "morning") {
+        return {
+            start: 9 * 60,
+            end: 13 * 60,
+            minutes: 4 * 60,
+            label: "09:00–13:00",
+        };
+    }
+
+    if (part === "afternoon") {
+        return {
+            start: 14 * 60,
+            end: 18 * 60,
+            minutes: 4 * 60,
+            label: "14:00–18:00",
+        };
+    }
+
+    return {
+        start: 9 * 60,
+        end: 18 * 60,
+        minutes: 8 * 60,
+        label: "09:00–18:00",
+    };
+}
+
+function overlapMessage(
+    absence: TimesheetDay["absence"],
+    start: number | null,
+    end: number | null,
+): string | null {
+    if (absence === null) {
+        return null;
+    }
+
+    const span = absenceSpan(absence.part);
+    const overlaps =
+        start !== null && end !== null
+            ? start < span.end && span.start < end
+            : absence.part === "day";
+
+    if (!overlaps) {
+        return null;
+    }
+
+    const part = absencePartLabel(absence.part);
+
+    return `Overlaps ${absence.label}${part ? ` · ${part}` : ""} (${span.label})`;
+}
+
+function OverlapNote({ message }: { message: string | null }) {
+    if (message === null) {
+        return null;
+    }
+
+    return <span className="block text-xs text-tw-purple">{message}</span>;
+}
+
+function absenceCovers(
+    absence: TimesheetDay["absence"],
+    constant: ConstantTask,
+): boolean {
+    if (absence === null) {
+        return false;
+    }
+
+    if (absence.part === "day") {
+        return true;
+    }
+
+    const start = minutesFromClock(constant.start);
+    const end = minutesFromClock(constant.end);
+
+    if (start === null || end === null) {
+        return true;
+    }
+
+    const covered =
+        absence.part === "morning" ? [9 * 60, 13 * 60] : [14 * 60, 18 * 60];
+
+    return start < covered[1] && covered[0] < end;
 }
 
 function isoWeekday(date: string): number {

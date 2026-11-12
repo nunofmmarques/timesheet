@@ -104,6 +104,7 @@ class ShowTimesheet
             'absences' => $absences->map(fn (Absence $absence): array => [
                 'id' => $absence->id,
                 'kind' => $absence->kind,
+                'part' => $absence->part,
                 'label' => $absence->label(),
                 'note' => $absence->note ?? '',
                 'startsOn' => $absence->starts_on->toDateString(),
@@ -386,6 +387,7 @@ class ShowTimesheet
                 $byDate[$date]['absence'] = $match instanceof Absence ? [
                     'id' => $match->id,
                     'kind' => $match->kind,
+                    'part' => $match->part,
                     'label' => $match->label(),
                     'note' => $match->note ?? '',
                 ] : null;

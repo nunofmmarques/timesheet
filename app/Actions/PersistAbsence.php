@@ -13,6 +13,7 @@ class PersistAbsence
     {
         $data = $request->validate([
             'kind' => ['required', 'string', Rule::in(array_keys(Absence::KINDS))],
+            'part' => ['required', 'string', Rule::in(array_keys(Absence::PARTS))],
             'starts_on' => ['required', 'date_format:Y-m-d'],
             'ends_on' => ['required', 'date_format:Y-m-d', 'after_or_equal:starts_on'],
             'note' => ['nullable', 'string', 'max:80', Rule::requiredIf($request->string('kind')->toString() === 'other')],
@@ -23,11 +24,13 @@ class PersistAbsence
 
         $startsOn = (string) $data['starts_on'];
         $endsOn = (string) $data['ends_on'];
+        $part = (string) $data['part'];
         $overlap = Absence::query()
             ->when($absence->exists, fn ($query) => $query->whereKeyNot($absence->id))
             ->whereDate('starts_on', '<=', $endsOn)
             ->whereDate('ends_on', '>=', $startsOn)
-            ->exists();
+            ->get()
+            ->contains(fn (Absence $other): bool => $part === 'day' || $other->part === 'day' || $other->part === $part);
 
         if ($overlap) {
             throw ValidationException::withMessages([
@@ -39,6 +42,7 @@ class PersistAbsence
 
         $absence->fill([
             'kind' => $data['kind'],
+            'part' => $part,
             'starts_on' => $startsOn,
             'ends_on' => $endsOn,
             'note' => $note === '' ? null : $note,

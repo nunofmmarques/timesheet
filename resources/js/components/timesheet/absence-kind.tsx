@@ -16,6 +16,18 @@ const ICONS: Record<string, LucideIcon> = {
     other: CalendarOffIcon,
 };
 
+export function absencePartLabel(part: string): string | null {
+    if (part === "morning") {
+        return "Morning";
+    }
+
+    if (part === "afternoon") {
+        return "Afternoon";
+    }
+
+    return null;
+}
+
 export function AbsenceIcon({
     kind,
     ...props

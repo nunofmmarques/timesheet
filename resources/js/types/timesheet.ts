@@ -54,9 +54,12 @@ export type ConstantTask = {
     skippedDates: string[];
 };
 
+export type AbsencePart = "day" | "morning" | "afternoon";
+
 export type TimeOff = {
     id: number;
     kind: string;
+    part: AbsencePart;
     label: string;
     note: string;
     startsOn: string;
@@ -66,6 +69,7 @@ export type TimeOff = {
 export type DayAbsence = {
     id: number;
     kind: string;
+    part: AbsencePart;
     label: string;
     note: string;
 };

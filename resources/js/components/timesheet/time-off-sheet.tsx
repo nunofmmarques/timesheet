@@ -1,8 +1,16 @@
 import { router, useForm } from '@inertiajs/react';
-import { PencilIcon, PlusIcon, Trash2Icon, TreePalmIcon } from 'lucide-react';
+import {
+    CalendarIcon,
+    PencilIcon,
+    PlusIcon,
+    Trash2Icon,
+    TreePalmIcon,
+} from 'lucide-react';
 import { useState } from 'react';
-import { AbsenceIcon } from '@/components/timesheet/absence-kind';
+import type { DateRange } from 'react-day-picker';
+import { AbsenceIcon, absencePartLabel } from '@/components/timesheet/absence-kind';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import {
     Field,
     FieldError,
@@ -10,6 +18,11 @@ import {
     FieldLabel,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 import {
     Select,
     SelectContent,
@@ -26,8 +39,9 @@ import {
     SheetTrigger,
 } from '@/components/ui/sheet';
 import { Spinner } from '@/components/ui/spinner';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { todayInLisbon } from '@/lib/timesheet';
-import type { TimeOff } from '@/types/timesheet';
+import type { AbsencePart, TimeOff } from '@/types/timesheet';
 
 const KINDS = [
     { value: 'vacation', label: 'Vacation' },
@@ -35,6 +49,12 @@ const KINDS = [
     { value: 'parental', label: 'Parental leave' },
     { value: 'sick', label: 'Sick leave' },
     { value: 'other', label: 'Other' },
+];
+
+const PARTS: { value: AbsencePart; label: string }[] = [
+    { value: 'day', label: 'Full day' },
+    { value: 'morning', label: 'Morning' },
+    { value: 'afternoon', label: 'Afternoon' },
 ];
 
 export function TimeOffSheet({ absences }: { absences: TimeOff[] }) {
@@ -83,6 +103,9 @@ export function TimeOffSheet({ absences }: { absences: TimeOff[] }) {
                                                     absence.startsOn,
                                                     absence.endsOn,
                                                 )}
+                                                {absencePartLabel(absence.part)
+                                                    ? ` · ${absencePartLabel(absence.part)}`
+                                                    : ''}
                                                 {absence.kind !== 'other' &&
                                                     absence.note !== '' &&
                                                     ` · ${absence.note}`}
@@ -146,20 +169,24 @@ export function TimeOffSheet({ absences }: { absences: TimeOff[] }) {
     );
 }
 
-function TimeOffForm({
+export function TimeOffForm({
     absence,
+    initialDate,
     onDone,
 }: {
     absence: TimeOff | null;
+    initialDate?: string;
     onDone: () => void;
 }) {
-    const today = todayInLisbon();
+    const today = initialDate ?? todayInLisbon();
     const form = useForm({
         kind: absence?.kind ?? 'vacation',
+        part: absence?.part ?? 'day',
         starts_on: absence?.startsOn ?? today,
         ends_on: absence?.endsOn ?? today,
         note: absence?.note ?? '',
     });
+    const dateError = form.errors.starts_on ?? form.errors.ends_on;
 
     return (
         <form
@@ -232,44 +259,119 @@ function TimeOffForm({
                         }
                     />
                 </Field>
-                <div className="grid grid-cols-2 gap-3">
-                    <Field>
-                        <FieldLabel htmlFor="time-off-start">From</FieldLabel>
-                        <Input
-                            id="time-off-start"
-                            type="date"
-                            value={form.data.starts_on}
-                            onChange={(event) =>
-                                form.setData('starts_on', event.target.value)
+                <Field>
+                    <FieldLabel>Day</FieldLabel>
+                    <ToggleGroup
+                        variant="outline"
+                        size="sm"
+                        spacing={0}
+                        className="w-full"
+                        value={[form.data.part]}
+                        onValueChange={(value) => {
+                            const next = value.at(-1);
+
+                            if (
+                                next !== 'day' &&
+                                next !== 'morning' &&
+                                next !== 'afternoon'
+                            ) {
+                                return;
                             }
-                        />
-                        <FieldError
-                            errors={
-                                form.errors.starts_on
-                                    ? [{ message: form.errors.starts_on }]
-                                    : undefined
+
+                            form.setData({
+                                ...form.data,
+                                part: next,
+                                ends_on:
+                                    next === 'day'
+                                        ? form.data.ends_on
+                                        : form.data.starts_on,
+                            });
+                        }}
+                    >
+                        {PARTS.map((part) => (
+                            <ToggleGroupItem
+                                key={part.value}
+                                value={part.value}
+                                className="flex-1"
+                            >
+                                {part.label}
+                            </ToggleGroupItem>
+                        ))}
+                    </ToggleGroup>
+                </Field>
+                <Field data-invalid={dateError ? true : undefined}>
+                    <FieldLabel>Dates</FieldLabel>
+                    <Popover>
+                        <PopoverTrigger
+                            render={
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="w-full justify-start font-normal"
+                                    aria-invalid={dateError ? true : undefined}
+                                />
                             }
-                        />
-                    </Field>
-                    <Field>
-                        <FieldLabel htmlFor="time-off-end">To</FieldLabel>
-                        <Input
-                            id="time-off-end"
-                            type="date"
-                            value={form.data.ends_on}
-                            onChange={(event) =>
-                                form.setData('ends_on', event.target.value)
-                            }
-                        />
-                        <FieldError
-                            errors={
-                                form.errors.ends_on
-                                    ? [{ message: form.errors.ends_on }]
-                                    : undefined
-                            }
-                        />
-                    </Field>
-                </div>
+                        >
+                            <CalendarIcon data-icon="inline-start" />
+                            {formatRange(
+                                form.data.starts_on,
+                                form.data.ends_on,
+                            )}
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="w-auto p-0">
+                            {form.data.part === 'day' ? (
+                                <Calendar
+                                    mode="range"
+                                    weekStartsOn={1}
+                                    numberOfMonths={1}
+                                    defaultMonth={parseIso(form.data.starts_on)}
+                                    selected={{
+                                        from: parseIso(form.data.starts_on),
+                                        to: parseIso(form.data.ends_on),
+                                    }}
+                                    onSelect={(range: DateRange | undefined) => {
+                                        if (!range?.from) {
+                                            return;
+                                        }
+
+                                        form.setData({
+                                            ...form.data,
+                                            starts_on: toIso(range.from),
+                                            ends_on: toIso(
+                                                range.to ?? range.from,
+                                            ),
+                                        });
+                                    }}
+                                />
+                            ) : (
+                                <Calendar
+                                    mode="single"
+                                    weekStartsOn={1}
+                                    defaultMonth={parseIso(form.data.starts_on)}
+                                    selected={parseIso(form.data.starts_on)}
+                                    onSelect={(date: Date | undefined) => {
+                                        if (date === undefined) {
+                                            return;
+                                        }
+
+                                        const iso = toIso(date);
+
+                                        form.setData({
+                                            ...form.data,
+                                            starts_on: iso,
+                                            ends_on: iso,
+                                        });
+                                    }}
+                                />
+                            )}
+                        </PopoverContent>
+                    </Popover>
+                    <FieldError
+                        errors={
+                            dateError ? [{ message: dateError }] : undefined
+                        }
+                    />
+                </Field>
                 <Field>
                     <FieldLabel htmlFor="time-off-note">
                         {form.data.kind === 'other' ? 'Name' : 'Note'}
@@ -303,6 +405,23 @@ function TimeOffForm({
                 <Button type="button" variant="ghost" onClick={onDone}>
                     Cancel
                 </Button>
+                {absence !== null && (
+                    <Button
+                        type="button"
+                        variant="destructive"
+                        className="ml-auto"
+                        disabled={form.processing}
+                        onClick={() =>
+                            router.delete(`/time-off/${absence.id}`, {
+                                preserveScroll: true,
+                                onSuccess: () => onDone(),
+                            })
+                        }
+                    >
+                        <Trash2Icon data-icon="inline-start" />
+                        Delete
+                    </Button>
+                )}
             </div>
         </form>
     );
@@ -313,6 +432,19 @@ function formatRange(start: string, end: string): string {
     const to = shortDate(end);
 
     return from === to ? from : `${from} – ${to}`;
+}
+
+function parseIso(value: string): Date {
+    const [year, month, day] = value.split('-').map(Number);
+
+    return new Date(year, month - 1, day);
+}
+
+function toIso(date: Date): string {
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `${date.getFullYear()}-${month}-${day}`;
 }
 
 function shortDate(value: string): string {

@@ -195,6 +195,7 @@ export default function Timesheet({
                                 teamworkConfigured={teamworkConfigured}
                                 teamworkError={teamworkError}
                                 constants={constants}
+                                absences={absences}
                             />
                         ))}
                     </div>

@@ -9,6 +9,7 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property string $kind
+ * @property string $part
  * @property Carbon $starts_on
  * @property Carbon $ends_on
  * @property string|null $note
@@ -17,6 +18,7 @@ use Illuminate\Support\Carbon;
  */
 #[Fillable([
     'kind',
+    'part',
     'starts_on',
     'ends_on',
     'note',
@@ -29,6 +31,12 @@ class Absence extends Model
         'parental' => 'Parental leave',
         'sick' => 'Sick leave',
         'other' => 'Other',
+    ];
+
+    public const PARTS = [
+        'day' => 'Full day',
+        'morning' => 'Morning',
+        'afternoon' => 'Afternoon',
     ];
 
     /**

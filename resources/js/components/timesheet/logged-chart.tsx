@@ -1,7 +1,7 @@
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { useId, useMemo, type MouseEvent, type MouseEventHandler } from "react";
 import { Bar, BarChart, ReferenceLine, XAxis, YAxis } from "recharts";
-import { AbsenceIcon } from "@/components/timesheet/absence-kind";
+import { AbsenceIcon, absencePartLabel } from "@/components/timesheet/absence-kind";
 import { TeamworkLogo } from "@/components/timesheet/teamwork-logo";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +18,7 @@ import {
     type ChartConfig,
 } from "@/components/ui/chart";
 import { formatDuration, todayInLisbon } from "@/lib/timesheet";
-import type { TimesheetDay } from "@/types/timesheet";
+import type { AbsencePart, TimesheetDay } from "@/types/timesheet";
 
 const FULL_DAY = 8 * 60;
 
@@ -56,7 +56,11 @@ type ChartPoint = {
     nonBillable: number;
     weekend: boolean;
     today: boolean;
-    absence: { kind: string; label: string } | null;
+    absence: {
+        kind: string;
+        label: string;
+        part: AbsencePart;
+    } | null;
 };
 
 type ColumnShapeProps = {
@@ -68,6 +72,7 @@ type ColumnShapeProps = {
     payload?: ChartPoint;
     background?: { x?: number; y?: number; width?: number; height?: number };
     patternId: string;
+    scale: number;
     onMouseEnter?: MouseEventHandler<SVGElement>;
     onMouseLeave?: MouseEventHandler<SVGElement>;
     onClick?: MouseEventHandler<SVGElement>;
@@ -257,7 +262,11 @@ export function LoggedChart({
                         <Bar
                             dataKey="minutes"
                             shape={(props: ColumnShapeProps) => (
-                                <ColumnShape {...props} patternId={patternId} />
+                                <ColumnShape
+                                    {...props}
+                                    patternId={patternId}
+                                    scale={scale}
+                                />
                             )}
                         />
                     </BarChart>
@@ -294,12 +303,7 @@ function chartPoints(
 ): ChartPoint[] {
     const logged = new Map(days.map((day) => [day.date, splitLogged(day)]));
     const absences = new Map(
-        days.map((day) => [
-            day.date,
-            day.absence
-                ? { kind: day.absence.kind, label: day.absence.label }
-                : null,
-        ]),
+        days.map((day) => [day.date, chartAbsence(day.absence)]),
     );
     const dates = eachDate(from, to);
 
@@ -307,13 +311,7 @@ function chartPoints(
         return [...days]
             .reverse()
             .map((day) =>
-                point(
-                    day.date,
-                    splitLogged(day),
-                    day.absence
-                        ? { kind: day.absence.kind, label: day.absence.label }
-                        : null,
-                ),
+                point(day.date, splitLogged(day), chartAbsence(day.absence)),
             );
     }
 
@@ -324,6 +322,21 @@ function chartPoints(
             absences.get(date) ?? null,
         ),
     );
+}
+
+function chartAbsence(
+    absence: TimesheetDay["absence"],
+): ChartPoint["absence"] {
+    if (absence === null) {
+        return null;
+    }
+
+    const part =
+        absence.part === "morning" || absence.part === "afternoon"
+            ? absence.part
+            : "day";
+
+    return { kind: absence.kind, label: absence.label, part };
 }
 
 function splitLogged(day: TimesheetDay): LoggedSplit {
@@ -382,6 +395,9 @@ function LoggedTooltip({
                             className="size-3.5 text-tw-purple"
                         />
                         {row.absence.label}
+                        {absencePartLabel(row.absence.part)
+                            ? ` · ${absencePartLabel(row.absence.part)}`
+                            : ""}
                     </span>
                 )}
                 {amounts.map((amount) => (
@@ -405,7 +421,7 @@ function LoggedTooltip({
 function point(
     date: string,
     logged: LoggedSplit,
-    absence: { kind: string; label: string } | null,
+    absence: ChartPoint["absence"],
 ): ChartPoint {
     const parsed = localDate(date);
     const weekday = WEEKDAYS[parsed.getDay()];
@@ -612,6 +628,29 @@ function isoDate(date: Date): string {
     return `${date.getFullYear()}-${month}-${day}`;
 }
 
+function absenceBar(
+    column: { x: number; y: number; width: number; height: number },
+    part: AbsencePart,
+    scale: number,
+): { x: number; y: number; width: number; height: number } {
+    if (part === "day" || scale <= 0) {
+        return column;
+    }
+
+    const dayHeight = (FULL_DAY / scale) * column.height;
+    const half = dayHeight / 2;
+
+    return {
+        x: column.x,
+        y:
+            column.y +
+            column.height -
+            (part === "morning" ? half : dayHeight),
+        width: column.width,
+        height: half,
+    };
+}
+
 function scrollToDay(date: string | undefined): void {
     if (date === undefined) {
         return;
@@ -637,6 +676,7 @@ function ColumnShape({
     payload,
     background,
     patternId,
+    scale = FULL_DAY,
     onMouseEnter,
     onMouseLeave,
     onClick,
@@ -674,6 +714,10 @@ function ColumnShape({
     const weekend = Boolean(payload?.weekend) && column;
     const today = payload?.today === true;
     const absence = Boolean(payload?.absence) && column;
+    const absenceFrame =
+        absence && column
+            ? absenceBar(column, payload?.absence?.part ?? "day", scale)
+            : null;
 
     return (
         <g className="cursor-pointer">
@@ -698,12 +742,12 @@ function ColumnShape({
                     pointerEvents="none"
                 />
             )}
-            {absence && column && (
+            {absence && absenceFrame && (
                 <rect
-                    x={column.x}
-                    y={column.y}
-                    width={column.width}
-                    height={column.height}
+                    x={absenceFrame.x}
+                    y={absenceFrame.y}
+                    width={absenceFrame.width}
+                    height={absenceFrame.height}
                     rx={3}
                     fill="color-mix(in oklab, var(--color-tw-purple) 10%, transparent)"
                     {...events}
@@ -761,12 +805,25 @@ function ColumnShape({
                     {...events}
                 />
             )}
-            {(today || absence) && column && (
+            {today && !absence && column && (
                 <rect
                     x={column.x}
                     y={column.y}
                     width={column.width}
                     height={column.height}
+                    rx={3}
+                    fill="none"
+                    stroke="var(--color-tw-orange)"
+                    strokeWidth={1}
+                    pointerEvents="none"
+                />
+            )}
+            {absence && absenceFrame && (
+                <rect
+                    x={absenceFrame.x}
+                    y={absenceFrame.y}
+                    width={absenceFrame.width}
+                    height={absenceFrame.height}
                     rx={3}
                     fill="none"
                     stroke={
@@ -776,6 +833,17 @@ function ColumnShape({
                     }
                     strokeWidth={1}
                     pointerEvents="none"
+                />
+            )}
+            {absence && absenceFrame && payload?.absence && (
+                <AbsenceIcon
+                    kind={payload.absence.kind}
+                    x={absenceFrame.x + (absenceFrame.width - 12) / 2}
+                    y={absenceFrame.y + absenceFrame.height - 16}
+                    width={12}
+                    height={12}
+                    aria-hidden
+                    className="pointer-events-none text-tw-purple"
                 />
             )}
         </g>
