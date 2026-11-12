@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { DaySection } from "@/components/timesheet/day-section";
 import { LoggedChart } from "@/components/timesheet/logged-chart";
-import { RangePicker } from "@/components/timesheet/range-picker";
 import { RepositorySheet } from "@/components/timesheet/repository-sheet";
 import { ConstantsSheet } from "@/components/timesheet/constants-sheet";
 import { TimeOffSheet } from "@/components/timesheet/time-off-sheet";
@@ -26,7 +25,6 @@ import type { TimesheetPageProps } from "@/types/timesheet";
 export default function Timesheet({
     from,
     to,
-    preset,
     days,
     problems,
     repositories,
@@ -76,34 +74,26 @@ export default function Timesheet({
                             9:00–13:00 and 14:00–18:00. Friday is 9:00–13:00.
                         </p>
                     </div>
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                        <RangePicker
-                            from={from}
-                            to={to}
-                            preset={preset}
-                            onChange={visit}
+                    <div className="flex flex-wrap items-center gap-2">
+                        <RepositorySheet
+                            repositories={repositories}
+                            discoverRoots={discoverRoots}
                         />
-                        <div className="flex flex-wrap items-center gap-2">
-                            <RepositorySheet
-                                repositories={repositories}
-                                discoverRoots={discoverRoots}
-                            />
-                            <TeamworkSheet
-                                repositories={repositories}
-                                projects={teamworkProjects}
-                                discoverRoots={discoverRoots}
-                                configured={teamworkConfigured}
-                                error={teamworkError}
-                            />
-                            <ConstantsSheet
-                                constants={constants}
-                                projects={teamworkProjects}
-                                configured={teamworkConfigured}
-                                error={teamworkError}
-                            />
-                            <TimeOffSheet absences={absences} />
-                            <SettingsSheet settings={settings} />
-                        </div>
+                        <TeamworkSheet
+                            repositories={repositories}
+                            projects={teamworkProjects}
+                            discoverRoots={discoverRoots}
+                            configured={teamworkConfigured}
+                            error={teamworkError}
+                        />
+                        <ConstantsSheet
+                            constants={constants}
+                            projects={teamworkProjects}
+                            configured={teamworkConfigured}
+                            error={teamworkError}
+                        />
+                        <TimeOffSheet absences={absences} />
+                        <SettingsSheet settings={settings} />
                     </div>
                 </header>
 
@@ -143,8 +133,7 @@ export default function Timesheet({
                             <EmptyTitle>No repositories yet</EmptyTitle>
                             <EmptyDescription>
                                 Scan the configured folders and this page will
-                                list what you committed in the interval you
-                                pick.
+                                list what you committed.
                             </EmptyDescription>
                         </EmptyHeader>
                         <EmptyContent>
@@ -186,7 +175,7 @@ export default function Timesheet({
                         days={days}
                         from={from}
                         to={to}
-                        onMonth={visit}
+                        onNavigate={visit}
                     />
                 )}
 

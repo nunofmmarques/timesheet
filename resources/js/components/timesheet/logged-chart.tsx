@@ -6,12 +6,12 @@ import { TeamworkLogo } from "@/components/timesheet/teamwork-logo";
 import { Button } from "@/components/ui/button";
 import {
     Card,
-    CardAction,
     CardContent,
     CardFooter,
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
     ChartContainer,
     ChartTooltip,
@@ -73,16 +73,18 @@ type ColumnShapeProps = {
     onClick?: MouseEventHandler<SVGElement>;
 };
 
+type Span = "week" | "month";
+
 export function LoggedChart({
     days,
     from,
     to,
-    onMonth,
+    onNavigate,
 }: {
     days: TimesheetDay[];
     from: string;
     to: string;
-    onMonth: (query: Record<string, string>) => void;
+    onNavigate: (query: Record<string, string>) => void;
 }) {
     const patternId = `weekend-${useId().replaceAll(":", "")}`;
     const points = useMemo(() => chartPoints(days, from, to), [days, from, to]);
@@ -93,11 +95,12 @@ export function LoggedChart({
     const total = points.reduce((sum, day) => sum + day.minutes, 0);
     const scale = Math.max(FULL_DAY, ...points.map((day) => day.minutes), 0);
     const compact = points.length > 14;
+    const span = spanOf(from, to);
 
     return (
         <Card size="sm">
             <CardHeader className="border-b items-center">
-                <CardTitle className="flex items-center justify-between gap-1">
+                <CardTitle className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-3">
                     <div className="flex items-center gap-2 text-sm font-medium">
                         <TeamworkLogo />
                         Teamwork
@@ -107,30 +110,65 @@ export function LoggedChart({
                             type="button"
                             size="icon-sm"
                             variant="ghost"
-                            aria-label="Previous month"
-                            onClick={() => onMonth(monthQuery(from, -1))}
+                            aria-label={
+                                span === "month"
+                                    ? "Previous month"
+                                    : "Previous week"
+                            }
+                            onClick={() =>
+                                onNavigate(shiftQuery(from, span, -1))
+                            }
                         >
                             <ChevronLeftIcon />
                         </Button>
                         <span className="min-w-36 text-center">
-                            {monthTitle(from)}
+                            {periodTitle(from, to, span)}
                         </span>
                         <Button
                             type="button"
                             size="icon-sm"
                             variant="ghost"
-                            aria-label="Next month"
-                            onClick={() => onMonth(monthQuery(from, 1))}
+                            aria-label={
+                                span === "month" ? "Next month" : "Next week"
+                            }
+                            onClick={() =>
+                                onNavigate(shiftQuery(from, span, 1))
+                            }
                         >
                             <ChevronRightIcon />
                         </Button>
                     </div>
-                    <span className="font-medium tabular-nums flex items-center gap-1">
-                        <span className="text-xs text-muted-foreground">
-                            Total
-                        </span>
-                        {formatDuration(total)}
-                    </span>
+                    <div className="flex items-center gap-1 justify-end">
+                        <ToggleGroup
+                            variant="outline"
+                            size="sm"
+                            spacing={0}
+                            value={[span]}
+                            onValueChange={(value) => {
+                                const next = value.at(-1);
+
+                                if (
+                                    (next === "week" || next === "month") &&
+                                    next !== span
+                                ) {
+                                    onNavigate(spanQuery(from, to, next));
+                                }
+                            }}
+                        >
+                            <ToggleGroupItem value="week">Week</ToggleGroupItem>
+                            <ToggleGroupItem value="month">
+                                Month
+                            </ToggleGroupItem>
+                        </ToggleGroup>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onNavigate(todayQuery(span))}
+                        >
+                            Today
+                        </Button>
+                    </div>
                 </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
@@ -399,41 +437,155 @@ function localDate(value: string): Date {
     return new Date(year, month - 1, day);
 }
 
-function monthQuery(from: string, delta: number): Record<string, string> {
-    const parsed = localDate(from);
-    const start = new Date(parsed.getFullYear(), parsed.getMonth() + delta, 1);
-    const end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
-    const nextFrom = isoDate(start);
-    const nextTo = isoDate(end);
-    const today = localDate(todayInLisbon());
-    const thisStart = isoDate(
-        new Date(today.getFullYear(), today.getMonth(), 1),
-    );
-    const thisEnd = isoDate(
-        new Date(today.getFullYear(), today.getMonth() + 1, 0),
-    );
-    const previous = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const previousStart = isoDate(previous);
-    const previousEnd = isoDate(
-        new Date(previous.getFullYear(), previous.getMonth() + 1, 0),
-    );
+function spanOf(from: string, to: string): Span {
+    const start = localDate(from);
+    const end = localDate(to);
+    const lastDay = new Date(
+        start.getFullYear(),
+        start.getMonth() + 1,
+        0,
+    ).getDate();
 
-    if (nextFrom === thisStart && nextTo === thisEnd) {
-        return { preset: "month" };
+    if (
+        start.getDate() === 1 &&
+        start.getFullYear() === end.getFullYear() &&
+        start.getMonth() === end.getMonth() &&
+        end.getDate() === lastDay
+    ) {
+        return "month";
     }
 
-    if (nextFrom === previousStart && nextTo === previousEnd) {
-        return { preset: "last-month" };
+    return "week";
+}
+
+function todayQuery(span: Span): Record<string, string> {
+    return { preset: span === "month" ? "month" : "week" };
+}
+
+function spanQuery(
+    from: string,
+    to: string,
+    span: Span,
+): Record<string, string> {
+    if (span === "month") {
+        return shiftQuery(from, "month", 0);
+    }
+
+    const today = todayInLisbon();
+    const anchor = today >= from && today <= to ? today : from;
+
+    return shiftQuery(anchor, "week", 0);
+}
+
+function shiftQuery(
+    from: string,
+    span: Span,
+    delta: number,
+): Record<string, string> {
+    if (span === "month") {
+        const parsed = localDate(from);
+        const start = new Date(
+            parsed.getFullYear(),
+            parsed.getMonth() + delta,
+            1,
+        );
+        const end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
+
+        return namedPeriod(isoDate(start), isoDate(end), "month");
+    }
+
+    const start = startOfWeek(localDate(from));
+    start.setDate(start.getDate() + delta * 7);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+
+    return namedPeriod(isoDate(start), isoDate(end), "week");
+}
+
+function namedPeriod(
+    nextFrom: string,
+    nextTo: string,
+    span: Span,
+): Record<string, string> {
+    const today = localDate(todayInLisbon());
+
+    if (span === "month") {
+        const thisStart = isoDate(
+            new Date(today.getFullYear(), today.getMonth(), 1),
+        );
+        const thisEnd = isoDate(
+            new Date(today.getFullYear(), today.getMonth() + 1, 0),
+        );
+        const previous = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+
+        if (nextFrom === thisStart && nextTo === thisEnd) {
+            return { preset: "month" };
+        }
+
+        if (
+            nextFrom === isoDate(previous) &&
+            nextTo ===
+                isoDate(
+                    new Date(
+                        previous.getFullYear(),
+                        previous.getMonth() + 1,
+                        0,
+                    ),
+                )
+        ) {
+            return { preset: "last-month" };
+        }
+    } else {
+        const thisStart = startOfWeek(today);
+        const thisEnd = new Date(thisStart);
+        thisEnd.setDate(thisStart.getDate() + 6);
+        const previousStart = new Date(thisStart);
+        previousStart.setDate(thisStart.getDate() - 7);
+        const previousEnd = new Date(previousStart);
+        previousEnd.setDate(previousStart.getDate() + 6);
+
+        if (nextFrom === isoDate(thisStart) && nextTo === isoDate(thisEnd)) {
+            return { preset: "week" };
+        }
+
+        if (
+            nextFrom === isoDate(previousStart) &&
+            nextTo === isoDate(previousEnd)
+        ) {
+            return { preset: "last-week" };
+        }
     }
 
     return { preset: "custom", from: nextFrom, to: nextTo };
 }
 
-function monthTitle(from: string): string {
-    return localDate(from).toLocaleDateString("en-GB", {
-        month: "long",
-        year: "numeric",
-    });
+function startOfWeek(date: Date): Date {
+    const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const offset = start.getDay() === 0 ? -6 : 1 - start.getDay();
+    start.setDate(start.getDate() + offset);
+
+    return start;
+}
+
+function periodTitle(from: string, to: string, span: Span): string {
+    if (span === "month") {
+        return localDate(from).toLocaleDateString("en-GB", {
+            month: "long",
+            year: "numeric",
+        });
+    }
+
+    const start = localDate(from);
+    const end = localDate(to);
+    const sameMonth =
+        start.getFullYear() === end.getFullYear() &&
+        start.getMonth() === end.getMonth();
+
+    if (sameMonth) {
+        return `${start.getDate()}–${end.getDate()} ${MONTHS[start.getMonth()]} ${start.getFullYear()}`;
+    }
+
+    return `${start.getDate()} ${MONTHS[start.getMonth()]} – ${end.getDate()} ${MONTHS[end.getMonth()]} ${end.getFullYear()}`;
 }
 
 function isoDate(date: Date): string {
