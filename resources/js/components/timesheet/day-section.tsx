@@ -1,9 +1,11 @@
 import { router, useForm } from "@inertiajs/react";
 import {
+    CheckIcon,
     ChevronDownIcon,
     ClockIcon,
     GitBranchIcon,
     GitCommitHorizontalIcon,
+    PencilIcon,
     SearchIcon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -31,7 +33,8 @@ import {
 } from "@/components/ui/input-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
-import { formatDuration } from "@/lib/timesheet";
+import { formatDuration, todayInLisbon } from "@/lib/timesheet";
+import { cn } from "@/lib/utils";
 import type {
     ConstantTask,
     RepositoryRecord,
@@ -41,6 +44,9 @@ import type {
     TimesheetLog,
     TimesheetProject,
 } from "@/types/timesheet";
+
+const contentGrid =
+    "grid grid-cols-[7.5rem_9rem_minmax(0,1fr)_auto] items-center gap-3";
 
 export function DaySection({
     day,
@@ -78,7 +84,8 @@ export function DaySection({
                       branches: branchNames(project?.commits ?? []),
                       repositoryId: repository?.id ?? null,
                       teamworkProjectId: repository?.teamworkProjectId ?? null,
-                      teamworkProjectName: repository?.teamworkProjectName ?? null,
+                      teamworkProjectName:
+                          repository?.teamworkProjectName ?? null,
                   };
               })
             : day.projects.map((project) => {
@@ -99,11 +106,13 @@ export function DaySection({
                       branches: branchNames(project.commits),
                       repositoryId: repository?.id ?? null,
                       teamworkProjectId: repository?.teamworkProjectId ?? null,
-                      teamworkProjectName: repository?.teamworkProjectName ?? null,
+                      teamworkProjectName:
+                          repository?.teamworkProjectName ?? null,
                   };
               });
 
     const fullDay = day.loggedMinutes >= 8 * 60;
+    const today = day.date === todayInLisbon();
     const pending = constants.filter(
         (constant) =>
             constant.weekday === isoWeekday(day.date) &&
@@ -118,11 +127,20 @@ export function DaySection({
         >
             <div className="flex items-baseline justify-between gap-3">
                 <div className="flex items-center gap-2">
-                    <h2 className="font-heading text-base font-medium">
+                    <h2
+                        className={cn(
+                            "font-heading text-base font-medium",
+                            today && "text-tw-orange",
+                        )}
+                    >
                         {day.label}
                     </h2>
+                    {today && (
+                        <Badge className="bg-tw-orange text-white">Today</Badge>
+                    )}
                     {fullDay && (
-                        <Badge className="bg-tw-orange text-white">
+                        <Badge className="bg-green-600 text-white">
+                            <CheckIcon data-icon="inline-start" />
                             8h logged
                         </Badge>
                     )}
@@ -142,29 +160,43 @@ export function DaySection({
                         <ChevronDownIcon className="ml-auto size-4 transition-transform in-aria-expanded:rotate-180" />
                     </CollapsibleTrigger>
                     <CollapsibleContent>
-                    <div className="flex flex-col divide-y border-t bg-card">
-                        {rows.map((row) => (
-                            <Collapsible key={row.key}>
-                                <div className="flex items-center">
-                                    <CollapsibleTrigger
-                                        render={
-                                            <Button
-                                                variant="ghost"
-                                                className="h-auto min-w-0 flex-1 justify-between rounded-none px-3 py-2 font-normal"
-                                            />
-                                        }
-                                    >
-                                        <span className="flex min-w-0 flex-1 items-center gap-3 text-left">
-                                            {row.meta !== null && (
-                                                <span className="w-28 shrink-0 text-muted-foreground tabular-nums">
-                                                    {row.meta}
-                                                </span>
-                                            )}
-                                            <span className="flex min-w-0 flex-1 items-center gap-2">
+                        <div className="flex flex-col divide-y border-t bg-card">
+                            {rows.map((row) => (
+                                <Collapsible key={row.key}>
+                                    <div className="flex items-center">
+                                        <CollapsibleTrigger
+                                            render={
+                                                <Button
+                                                    variant="ghost"
+                                                    className={cn(
+                                                        contentGrid,
+                                                        "h-auto min-w-0 flex-1 justify-start rounded-none border-0 px-3 py-2 text-left font-normal whitespace-normal",
+                                                    )}
+                                                />
+                                            }
+                                        >
+                                            <span className="whitespace-nowrap text-muted-foreground tabular-nums">
+                                                {row.meta}
+                                            </span>
+                                            <span className="text-right whitespace-nowrap tabular-nums">
+                                                {row.minutes > 0 && (
+                                                    <>
+                                                        <span className="text-muted-foreground">
+                                                            to log{" "}
+                                                        </span>
+                                                        {formatDuration(
+                                                            row.minutes,
+                                                        )}
+                                                    </>
+                                                )}
+                                            </span>
+                                            <span className="flex min-w-0 items-center gap-2">
                                                 <span className="shrink-0 font-medium">
                                                     {row.label}
                                                 </span>
-                                                <BranchMark branches={row.branches} />
+                                                <BranchMark
+                                                    branches={row.branches}
+                                                />
                                                 {row.teamworkProjectName !==
                                                     null && (
                                                     <span className="flex min-w-0 items-center gap-1 text-muted-foreground">
@@ -180,49 +212,39 @@ export function DaySection({
                                                     </span>
                                                 )}
                                             </span>
-                                            {row.minutes > 0 && (
-                                                <span className="shrink-0 tabular-nums">
-                                                    <span className="text-muted-foreground">
-                                                        to log{" "}
-                                                    </span>
-                                                    {formatDuration(row.minutes)}
-                                                </span>
-                                            )}
-                                        </span>
-                                        <ChevronDownIcon
-                                            data-icon="inline-end"
-                                            className="transition-transform in-aria-expanded:rotate-180"
+                                            <ChevronDownIcon className="transition-transform in-aria-expanded:rotate-180" />
+                                        </CollapsibleTrigger>
+                                        <TeamworkLink
+                                            rowKey={row.key}
+                                            label={row.label}
+                                            date={day.date}
+                                            dateLabel={day.label}
+                                            start={row.start}
+                                            end={row.end}
+                                            minutes={row.minutes}
+                                            commits={row.commits}
+                                            logged={day.logged}
+                                            repositoryId={row.repositoryId}
+                                            projectId={row.teamworkProjectId}
+                                            projectName={
+                                                row.teamworkProjectName
+                                            }
+                                            projects={projects}
+                                            canLink={
+                                                teamworkConfigured &&
+                                                teamworkError === null
+                                            }
                                         />
-                                    </CollapsibleTrigger>
-                                    <TeamworkLink
-                                        rowKey={row.key}
-                                        label={row.label}
-                                        date={day.date}
-                                        dateLabel={day.label}
-                                        start={row.start}
-                                        end={row.end}
-                                        minutes={row.minutes}
-                                        commits={row.commits}
-                                        logged={day.logged}
-                                        repositoryId={row.repositoryId}
-                                        projectId={row.teamworkProjectId}
-                                        projectName={row.teamworkProjectName}
-                                        projects={projects}
-                                        canLink={
-                                            teamworkConfigured &&
-                                            teamworkError === null
-                                        }
-                                    />
-                                </div>
-                                <CollapsibleContent className="bg-muted/40 px-3 py-2">
-                                    <CommitList
-                                        commits={row.commits}
-                                        showBranch={row.branches.length > 1}
-                                    />
-                                </CollapsibleContent>
-                            </Collapsible>
-                        ))}
-                    </div>
+                                    </div>
+                                    <CollapsibleContent className="bg-muted/40 px-3 py-2">
+                                        <CommitList
+                                            commits={row.commits}
+                                            showBranch={row.branches.length > 1}
+                                        />
+                                    </CollapsibleContent>
+                                </Collapsible>
+                            ))}
+                        </div>
                     </CollapsibleContent>
                 </Collapsible>
             )}
@@ -255,7 +277,7 @@ function LoggedTime({
                 }
             >
                 <p className="flex items-center gap-2 text-sm font-medium">
-                    <TeamworkLogo variant={fullDay ? 'slate' : 'white'} />
+                    <TeamworkLogo variant={fullDay ? "slate" : "white"} />
                     Teamwork
                 </p>
                 <p className="text-sm font-medium tabular-nums">
@@ -267,12 +289,15 @@ function LoggedTime({
                     {day.logged.map((entry) => (
                         <li
                             key={entry.id}
-                            className="flex items-baseline gap-3 px-3 py-2 text-sm"
+                            className={cn(
+                                contentGrid,
+                                "items-baseline px-3 py-2 text-sm",
+                            )}
                         >
-                            <span className="w-12 shrink-0 text-muted-foreground tabular-nums">
-                                {entry.time ?? "—"}
+                            <span className="whitespace-nowrap text-muted-foreground tabular-nums">
+                                {timeRange(entry.time, entry.minutes)}
                             </span>
-                            <span className="flex w-20 shrink-0 items-center gap-1.5 tabular-nums">
+                            <span className="flex items-center justify-end gap-1.5 text-right whitespace-nowrap tabular-nums">
                                 {formatDuration(entry.minutes)}
                                 {!entry.billable && (
                                     <span
@@ -283,6 +308,7 @@ function LoggedTime({
                                 )}
                             </span>
                             <LoggedEntry entry={entry} />
+                            <EditLoggedTime day={day} entry={entry} />
                         </li>
                     ))}
                 </ul>
@@ -292,12 +318,15 @@ function LoggedTime({
                     {pending.map((constant) => (
                         <li
                             key={constant.id}
-                            className="flex items-center gap-3 bg-muted/40 px-3 py-2 text-sm"
+                            className={cn(
+                                contentGrid,
+                                "bg-muted/40 px-3 py-2 text-sm",
+                            )}
                         >
-                            <span className="w-12 shrink-0 text-muted-foreground tabular-nums">
-                                {constant.start}
+                            <span className="whitespace-nowrap text-muted-foreground tabular-nums">
+                                {constant.start}–{constant.end}
                             </span>
-                            <span className="w-16 shrink-0 tabular-nums">
+                            <span className="text-right whitespace-nowrap tabular-nums">
                                 {formatDuration(
                                     minutesBetween(
                                         constant.start,
@@ -389,6 +418,59 @@ function ConstantLogButton({
     );
 }
 
+function EditLoggedTime({
+    day,
+    entry,
+}: {
+    day: TimesheetDay;
+    entry: TimesheetLog;
+}) {
+    const [open, setOpen] = useState(false);
+    const startMinutes =
+        entry.time === null ? null : minutesFromClock(entry.time);
+
+    if (entry.projectId === null || entry.taskId === null) {
+        return null;
+    }
+
+    return (
+        <span className="self-center">
+            <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                aria-label={`Edit ${entry.task || entry.project}`}
+                onClick={() => setOpen(true)}
+            >
+                <PencilIcon />
+            </Button>
+            <LogTimeDialog
+                open={open}
+                onOpenChange={setOpen}
+                projectId={entry.projectId}
+                projectName={entry.project || "Teamwork"}
+                rowKey={`log-${entry.id}`}
+                date={day.date}
+                dateLabel={day.label}
+                start={entry.time}
+                end={
+                    startMinutes === null
+                        ? null
+                        : clockFromMinutes(startMinutes + entry.minutes)
+                }
+                minutes={entry.minutes}
+                logged={day.logged}
+                editing={{
+                    id: entry.id,
+                    taskId: entry.taskId,
+                    taskName: entry.task,
+                    billable: entry.billable,
+                }}
+            />
+        </span>
+    );
+}
+
 function LoggedEntry({ entry }: { entry: TimesheetLog }) {
     const project =
         entry.projectUrl === null ? (
@@ -405,7 +487,7 @@ function LoggedEntry({ entry }: { entry: TimesheetLog }) {
         );
 
     return (
-        <span className="min-w-0 flex-1">
+        <span className="min-w-0">
             <span className="font-medium">{project}</span>
             {entry.task !== "" &&
                 (entry.taskUrl === null ? (
@@ -586,7 +668,9 @@ function LinkProject({
                                 id={`link-project-${repositoryId}`}
                                 value={query}
                                 placeholder="Search projects"
-                                onChange={(event) => setQuery(event.target.value)}
+                                onChange={(event) =>
+                                    setQuery(event.target.value)
+                                }
                             />
                         </InputGroup>
                         <ScrollArea className="h-48 rounded-lg border">
@@ -604,7 +688,9 @@ function LinkProject({
                                         className="h-auto w-full justify-start px-2 py-1.5"
                                         onClick={() => link(option.value)}
                                     >
-                                        <span className="truncate">{option.label}</span>
+                                        <span className="truncate">
+                                            {option.label}
+                                        </span>
                                     </Button>
                                 ))}
                             </div>
@@ -652,6 +738,28 @@ function minutesBetween(start: string, end: string): number | null {
     }
 
     return endMinutes - startMinutes;
+}
+
+function timeRange(start: string | null, minutes: number): string {
+    if (start === null) {
+        return "—";
+    }
+
+    const startMinutes = minutesFromClock(start);
+
+    if (startMinutes === null) {
+        return start;
+    }
+
+    return `${start.slice(0, 5)}–${clockFromMinutes(startMinutes + minutes)}`;
+}
+
+function clockFromMinutes(total: number): string {
+    const minutes = ((total % (24 * 60)) + 24 * 60) % (24 * 60);
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+
+    return `${String(hours).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
 }
 
 function minutesFromClock(clock: string): number | null {
@@ -731,13 +839,16 @@ function CommitList({
     return (
         <ul className="flex flex-col gap-1.5">
             {commits.map((commit) => (
-                <li key={commit.hash} className="flex gap-3 text-sm">
-                    <span className="w-12 shrink-0 text-muted-foreground tabular-nums">
+                <li key={commit.hash} className={cn(contentGrid, "text-sm")}>
+                    <span className="whitespace-nowrap text-muted-foreground tabular-nums">
                         {commit.time}
                     </span>
-                    <span className="min-w-0 flex-1">{commit.subject}</span>
+                    <span />
+                    <span className="min-w-0 text-xs text-muted-foreground">
+                        {commit.subject}
+                    </span>
                     {showBranch && commit.branch !== "" && (
-                        <span className="flex max-w-40 shrink-0 items-center gap-1 text-muted-foreground">
+                        <span className="flex max-w-40 items-center gap-1 text-muted-foreground">
                             <GitBranchIcon className="size-3.5 shrink-0" />
                             <span className="truncate">{commit.branch}</span>
                         </span>

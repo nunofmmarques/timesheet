@@ -14,7 +14,7 @@ import {
     ChartTooltipContent,
     type ChartConfig,
 } from '@/components/ui/chart';
-import { formatDuration } from '@/lib/timesheet';
+import { formatDuration, todayInLisbon } from '@/lib/timesheet';
 import type { TimesheetDay } from '@/types/timesheet';
 
 const FULL_DAY = 8 * 60;
@@ -52,6 +52,7 @@ type ChartPoint = {
     billable: number;
     nonBillable: number;
     weekend: boolean;
+    today: boolean;
 };
 
 type ColumnShapeProps = {
@@ -272,6 +273,7 @@ function point(date: string, logged: LoggedSplit): ChartPoint {
         billable: logged.billable,
         nonBillable: logged.nonBillable,
         weekend: parsed.getDay() === 0 || parsed.getDay() === 6,
+        today: date === todayInLisbon(),
     };
 }
 
@@ -353,20 +355,41 @@ function ColumnShape({
         minutes > 0 ? (height * nonBillable) / minutes : 0;
     const billableHeight = Math.max(0, height - nonBillableHeight);
     const billableFill = 'var(--color-tw-pink)';
-    const weekend = payload?.weekend && background?.width && background.height;
+    const slot =
+        background?.width && background.height
+            ? {
+                  x: background.x,
+                  y: background.y,
+                  width: background.width,
+                  height: background.height,
+              }
+            : null;
+    const weekend = payload?.weekend && slot;
+    const today = payload?.today === true;
 
     return (
         <g className="cursor-pointer">
-            {background?.width && background.height ? (
+            {slot ? (
                 <rect
-                    x={background.x}
-                    y={background.y}
-                    width={background.width}
-                    height={background.height}
+                    x={slot.x}
+                    y={slot.y}
+                    width={slot.width}
+                    height={slot.height}
                     fill="transparent"
                     onClick={select}
                 />
             ) : null}
+            {today && slot && (
+                <rect
+                    x={slot.x}
+                    y={slot.y}
+                    width={slot.width}
+                    height={slot.height}
+                    rx={6}
+                    fill="color-mix(in oklab, var(--color-tw-orange) 16%, transparent)"
+                    pointerEvents="none"
+                />
+            )}
             {weekend && (
                 <rect
                     x={background.x}
@@ -406,6 +429,19 @@ function ColumnShape({
                     height={nonBillableHeight}
                     fill="var(--color-tw-indigo)"
                     {...events}
+                />
+            )}
+            {today && slot && (
+                <rect
+                    x={slot.x}
+                    y={slot.y}
+                    width={slot.width}
+                    height={slot.height}
+                    rx={6}
+                    fill="none"
+                    stroke="var(--color-tw-orange)"
+                    strokeWidth={1.5}
+                    pointerEvents="none"
                 />
             )}
         </g>
@@ -471,7 +507,11 @@ function DayTick({
             x={x}
             y={y}
             textAnchor="middle"
-            className="cursor-pointer fill-muted-foreground text-[10px]"
+            className={
+                point?.today
+                    ? 'cursor-pointer fill-tw-orange text-[10px] font-medium'
+                    : 'cursor-pointer fill-muted-foreground text-[10px]'
+            }
             onClick={() => {
                 if (point !== undefined) {
                     onSelect(point.date);

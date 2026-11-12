@@ -1,16 +1,16 @@
-import { Head, router, usePage } from '@inertiajs/react';
-import { GitCommitHorizontalIcon, TriangleAlertIcon } from 'lucide-react';
-import { useEffect, useRef } from 'react';
-import { toast } from 'sonner';
-import { DaySection } from '@/components/timesheet/day-section';
-import { LoggedChart } from '@/components/timesheet/logged-chart';
-import { RangePicker } from '@/components/timesheet/range-picker';
-import { RepositorySheet } from '@/components/timesheet/repository-sheet';
-import { ConstantsSheet } from '@/components/timesheet/constants-sheet';
-import { SettingsSheet } from '@/components/timesheet/settings-sheet';
-import { TeamworkSheet } from '@/components/timesheet/teamwork-sheet';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
+import { Head, router, usePage } from "@inertiajs/react";
+import { GitCommitHorizontalIcon, TriangleAlertIcon } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { toast } from "sonner";
+import { DaySection } from "@/components/timesheet/day-section";
+import { LoggedChart } from "@/components/timesheet/logged-chart";
+import { RangePicker } from "@/components/timesheet/range-picker";
+import { RepositorySheet } from "@/components/timesheet/repository-sheet";
+import { ConstantsSheet } from "@/components/timesheet/constants-sheet";
+import { SettingsSheet } from "@/components/timesheet/settings-sheet";
+import { TeamworkSheet } from "@/components/timesheet/teamwork-sheet";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import {
     Empty,
     EmptyContent,
@@ -18,9 +18,9 @@ import {
     EmptyHeader,
     EmptyMedia,
     EmptyTitle,
-} from '@/components/ui/empty';
-import { Toaster } from '@/components/ui/sonner';
-import type { TimesheetPageProps } from '@/types/timesheet';
+} from "@/components/ui/empty";
+import { Toaster } from "@/components/ui/sonner";
+import type { TimesheetPageProps } from "@/types/timesheet";
 
 export default function Timesheet({
     from,
@@ -42,7 +42,7 @@ export default function Timesheet({
     const toasted = useRef<string | null>(null);
 
     useEffect(() => {
-        if (typeof flash?.status !== 'string' || flash.status === '') {
+        if (typeof flash?.status !== "string" || flash.status === "") {
             return;
         }
 
@@ -55,7 +55,7 @@ export default function Timesheet({
     }, [flash?.status]);
 
     function visit(query: Record<string, string>) {
-        router.get('/', query, { preserveScroll: true });
+        router.get("/", query, { preserveScroll: true });
     }
 
     return (
@@ -107,7 +107,9 @@ export default function Timesheet({
                 {teamworkTimeError !== null && (
                     <Alert>
                         <TriangleAlertIcon />
-                        <AlertTitle>Teamwork time could not be loaded</AlertTitle>
+                        <AlertTitle>
+                            Teamwork time could not be loaded
+                        </AlertTitle>
                         <AlertDescription>{teamworkTimeError}</AlertDescription>
                     </Alert>
                 )}
@@ -124,7 +126,7 @@ export default function Timesheet({
                                     (problem) =>
                                         `${problem.repository}: ${problem.message}`,
                                 )
-                                .join(' ')}
+                                .join(" ")}
                         </AlertDescription>
                     </Alert>
                 )}
@@ -146,7 +148,7 @@ export default function Timesheet({
                             <Button
                                 onClick={() =>
                                     router.post(
-                                        '/repositories/scan',
+                                        "/repositories/scan",
                                         {},
                                         { preserveScroll: true },
                                     )
@@ -168,7 +170,7 @@ export default function Timesheet({
                             <EmptyDescription>
                                 {settings.authorEmail
                                     ? `Nothing from ${settings.authorEmail} between ${from} and ${to}.`
-                                    : `Nothing between ${from} and ${to}.`}{' '}
+                                    : `Nothing between ${from} and ${to}.`}{" "}
                                 Widen the dates, or clear the author filter in
                                 Author.
                             </EmptyDescription>

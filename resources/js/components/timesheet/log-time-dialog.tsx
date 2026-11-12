@@ -50,6 +50,7 @@ export function LogTimeDialog({
     end,
     minutes,
     logged,
+    editing = null,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -62,14 +63,20 @@ export function LogTimeDialog({
     end: string | null;
     minutes: number;
     logged: TimesheetLog[];
+    editing?: {
+        id: number;
+        taskId: number;
+        taskName: string;
+        billable: boolean;
+    } | null;
 }) {
     const form = useForm({
         project_id: projectId,
-        task_id: 0,
+        task_id: editing?.taskId ?? 0,
         date,
         start: start ?? "",
         end: end ?? "",
-        billable: true,
+        billable: editing?.billable ?? true,
     });
     const [tasks, setTasks] = useState<TeamworkTask[] | null>(null);
     const [loadError, setLoadError] = useState<string | null>(null);
@@ -88,8 +95,19 @@ export function LogTimeDialog({
     const selected = (tasks ?? []).find(
         (task) => task.id === form.data.task_id,
     );
+    const currentTask =
+        editing &&
+        form.data.task_id === editing.taskId &&
+        editing.taskName !== ""
+            ? editing.taskName
+            : null;
     const span = minutesBetween(form.data.start, form.data.end);
-    const conflicts = overlappingLogs(logged, form.data.start, form.data.end);
+    const conflicts = overlappingLogs(
+        logged,
+        form.data.start,
+        form.data.end,
+        editing?.id,
+    );
     const suggestion =
         start !== null && end !== null
             ? `${dateLabel} · ${start}–${end} · ${formatDuration(minutes)}`
@@ -102,11 +120,11 @@ export function LogTimeDialog({
 
         form.setData({
             project_id: projectId,
-            task_id: 0,
+            task_id: editing?.taskId ?? 0,
             date,
             start: start ?? "",
             end: end ?? "",
-            billable: true,
+            billable: editing?.billable ?? true,
         });
         form.clearErrors();
         setQuery("");
@@ -145,7 +163,7 @@ export function LogTimeDialog({
             });
 
         return () => controller.abort();
-    }, [open, projectId]);
+    }, [open, projectId, editing?.id]);
 
     function submit(event: FormEvent) {
         event.preventDefault();
@@ -162,10 +180,18 @@ export function LogTimeDialog({
             return;
         }
 
-        form.post("/teamwork/time", {
+        const options = {
             preserveScroll: true,
             onSuccess: () => onOpenChange(false),
-        });
+        };
+
+        if (editing) {
+            form.put(`/teamwork/time/${editing.id}`, options);
+
+            return;
+        }
+
+        form.post("/teamwork/time", options);
     }
 
     return (
@@ -174,14 +200,18 @@ export function LogTimeDialog({
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <TeamworkLogo />
-                        Log time
+                        {editing ? "Edit time" : "Log time"}
                     </DialogTitle>
                     <DialogDescription>
                         {projectName}.
-                        <br />
-                        <span className="text-xs">
-                            Suggested: {suggestion}.
-                        </span>
+                        {!editing && (
+                            <>
+                                <br />
+                                <span className="text-xs">
+                                    Suggested: {suggestion}.
+                                </span>
+                            </>
+                        )}
                     </DialogDescription>
                 </DialogHeader>
                 <form className="flex flex-col gap-4" onSubmit={submit}>
@@ -249,13 +279,16 @@ export function LogTimeDialog({
                                     ))}
                                 </div>
                             </ScrollArea>
-                            {selected && (
+                            {(selected || currentTask) && (
                                 <Alert>
                                     <CheckIcon />
                                     <AlertTitle>Selected</AlertTitle>
                                     <AlertDescription>
-                                        {taskPath(selected)}
-                                        {selected.tasklist !== "" &&
+                                        {selected
+                                            ? taskPath(selected)
+                                            : currentTask}
+                                        {selected &&
+                                            selected.tasklist !== "" &&
                                             ` · ${selected.tasklist}`}
                                     </AlertDescription>
                                 </Alert>
@@ -362,7 +395,8 @@ export function LogTimeDialog({
                             {form.processing && (
                                 <Spinner data-icon="inline-start" />
                             )}
-                            Log {span !== null ? formatDuration(span) : "time"}
+                            {editing ? "Save" : "Log"}{" "}
+                            {span !== null ? formatDuration(span) : "time"}
                         </Button>
                     </DialogFooter>
                 </form>
@@ -418,6 +452,7 @@ function overlappingLogs(
     logged: TimesheetLog[],
     start: string,
     end: string,
+    ignoreId?: number,
 ): TimesheetLog[] {
     const startMinutes = minutesFromClock(start);
     const endMinutes = minutesFromClock(end);
@@ -431,7 +466,7 @@ function overlappingLogs(
     }
 
     return logged.filter((entry) => {
-        if (entry.time === null || entry.minutes <= 0) {
+        if (entry.id === ignoreId || entry.time === null || entry.minutes <= 0) {
             return false;
         }
 

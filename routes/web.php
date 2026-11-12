@@ -12,6 +12,7 @@ use App\Actions\ShowTimesheet;
 use App\Actions\StoreConstantTask;
 use App\Actions\UpdateConstantTask;
 use App\Actions\UpdateRepository;
+use App\Actions\UpdateTeamworkTime;
 use App\Actions\UpdateTimesheetSettings;
 use Illuminate\Support\Facades\Route;
 
@@ -32,3 +33,6 @@ Route::get('/teamwork/projects/{project}/tasks', ListTeamworkTasks::class)
     ->whereNumber('project')
     ->name('teamwork.tasks');
 Route::post('/teamwork/time', LogTeamworkTime::class)->name('teamwork.time.store');
+Route::put('/teamwork/time/{timelog}', UpdateTeamworkTime::class)
+    ->whereNumber('timelog')
+    ->name('teamwork.time.update');

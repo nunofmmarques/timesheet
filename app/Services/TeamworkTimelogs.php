@@ -111,6 +111,26 @@ class TeamworkTimelogs
         }
     }
 
+    public function update(int $timelogId, int $taskId, string $date, string $time, int $minutes, bool $billable): void
+    {
+        $response = Http::withBasicAuth($this->token(), 'x')
+            ->acceptJson()
+            ->timeout(20)
+            ->patch($this->url().'/projects/api/v3/time/'.$timelogId.'.json', [
+                'timelog' => [
+                    'date' => $date,
+                    'time' => $time,
+                    'minutes' => $minutes,
+                    'isBillable' => $billable,
+                    'taskId' => $taskId,
+                ],
+            ]);
+
+        if ($response->failed()) {
+            throw new RuntimeException($this->failure($response, 'Teamwork could not update this time.'));
+        }
+    }
+
     /**
      * @param  array<mixed>  $log
      * @param  array<array-key, mixed>  $projects
@@ -218,7 +238,7 @@ class TeamworkTimelogs
         return is_int($id) ? $id : (int) $id;
     }
 
-    private function failure(Response $response): string
+    private function failure(Response $response, string $fallback = 'Teamwork could not log this time.'): string
     {
         $errors = $response->json('errors');
 
@@ -230,7 +250,7 @@ class TeamworkTimelogs
             }
         }
 
-        return 'Teamwork could not log this time.';
+        return $fallback;
     }
 
     private function url(): string
