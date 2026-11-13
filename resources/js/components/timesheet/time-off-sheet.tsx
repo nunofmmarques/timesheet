@@ -9,6 +9,7 @@ import {
 import { useState } from 'react';
 import type { DateRange } from 'react-day-picker';
 import { AbsenceIcon, absencePartLabel } from '@/components/timesheet/absence-kind';
+import { sheetNavTriggerClass } from '@/components/timesheet/sheet-nav';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -69,8 +70,8 @@ export function TimeOffSheet({ absences }: { absences: TimeOff[] }) {
 
     return (
         <Sheet>
-            <SheetTrigger render={<Button variant="outline" />}>
-                <TreePalmIcon data-icon="inline-start" />
+            <SheetTrigger className={sheetNavTriggerClass}>
+                <TreePalmIcon />
                 Time off
             </SheetTrigger>
             <SheetContent className="data-[side=right]:sm:max-w-md">

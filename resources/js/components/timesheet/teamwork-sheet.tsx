@@ -1,9 +1,13 @@
-import { router } from '@inertiajs/react';
-import { ExternalLinkIcon, SearchIcon } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { FolderMark, folderMark } from '@/components/timesheet/folder-mark';
-import { TeamworkLogo } from '@/components/timesheet/teamwork-logo';
-import { Button } from '@/components/ui/button';
+import { router } from "@inertiajs/react";
+import { ExternalLinkIcon, SearchIcon } from "lucide-react";
+import { useMemo, useState } from "react";
+import { FolderMark, folderMark } from "@/components/timesheet/folder-mark";
+import {
+    sheetNavCountClass,
+    sheetNavTriggerClass,
+} from "@/components/timesheet/sheet-nav";
+import { TeamworkLogo } from "@/components/timesheet/teamwork-logo";
+import { Button } from "@/components/ui/button";
 import {
     Combobox,
     ComboboxContent,
@@ -11,13 +15,13 @@ import {
     ComboboxInput,
     ComboboxItem,
     ComboboxList,
-} from '@/components/ui/combobox';
-import { Field, FieldLabel } from '@/components/ui/field';
+} from "@/components/ui/combobox";
+import { Field, FieldLabel } from "@/components/ui/field";
 import {
     InputGroup,
     InputGroupAddon,
     InputGroupInput,
-} from '@/components/ui/input-group';
+} from "@/components/ui/input-group";
 import {
     Sheet,
     SheetContent,
@@ -25,9 +29,9 @@ import {
     SheetHeader,
     SheetTitle,
     SheetTrigger,
-} from '@/components/ui/sheet';
-import type { RepositoryRecord } from '@/types/repository';
-import type { TeamworkProject } from '@/types/teamwork';
+} from "@/components/ui/sheet";
+import type { RepositoryRecord } from "@/types/repository";
+import type { TeamworkProject } from "@/types/teamwork";
 
 type ProjectOption = {
     value: string;
@@ -47,14 +51,14 @@ export function TeamworkSheet({
     configured: boolean;
     error: string | null;
 }) {
-    const [query, setQuery] = useState('');
+    const [query, setQuery] = useState("");
     const linked = repositories.filter(
         (repository) => repository.teamworkProjectId !== null,
     ).length;
     const needle = query.trim().toLowerCase();
     const options = useMemo<ProjectOption[]>(
         () => [
-            { value: 'none', label: 'No project' },
+            { value: "none", label: "No project" },
             ...projects.map((project) => ({
                 value: String(project.id),
                 label: project.name,
@@ -63,7 +67,7 @@ export function TeamworkSheet({
         [projects],
     );
     const visibleRepositories = repositories.filter((repository) => {
-        if (needle === '') {
+        if (needle === "") {
             return true;
         }
 
@@ -81,10 +85,10 @@ export function TeamworkSheet({
 
     return (
         <Sheet>
-            <SheetTrigger render={<Button variant="outline" />}>
-                <TeamworkLogo data-icon="inline-start" />
+            <SheetTrigger className={sheetNavTriggerClass}>
+                <TeamworkLogo variant="slate" />
                 Teamwork
-                <span className="text-muted-foreground">
+                <span className={sheetNavCountClass}>
                     {linked}/{repositories.length}
                 </span>
             </SheetTrigger>
@@ -166,7 +170,7 @@ export function TeamworkSheet({
                                                 }
                                                 target="_blank"
                                                 rel="noreferrer"
-                                                aria-label={`Open ${repository.teamworkProjectName ?? 'project'} in Teamwork`}
+                                                aria-label={`Open ${repository.teamworkProjectName ?? "project"} in Teamwork`}
                                             />
                                         }
                                     >
@@ -196,7 +200,7 @@ function ProjectPicker({
             (option) =>
                 option.value ===
                 (repository.teamworkProjectId === null
-                    ? 'none'
+                    ? "none"
                     : String(repository.teamworkProjectId)),
         ) ?? options[0];
 
@@ -215,7 +219,7 @@ function ProjectPicker({
                     `/repositories/${repository.id}`,
                     {
                         teamwork_project_id:
-                            option.value === 'none'
+                            option.value === "none"
                                 ? null
                                 : Number(option.value),
                     },

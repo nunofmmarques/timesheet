@@ -120,12 +120,41 @@ export function LoggedChart({
     const span = spanOf(from, to);
 
     return (
-        <Card size="sm" className="-mx-4 rounded-none">
+        <Card size="sm" className="-mx-4 rounded-none ring-0">
             <CardHeader className="border-b items-center">
                 <CardTitle className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-3 max-w-5xl mx-auto">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                        <TeamworkLogo variant="slate" />
-                        Teamwork
+                    <div className="flex items-center gap-2 ">
+                        <ToggleGroup
+                            variant="outline"
+                            size="sm"
+                            spacing={0}
+                            value={[span]}
+                            onValueChange={(value) => {
+                                const next = value.at(-1);
+
+                                if (
+                                    (next === "week" || next === "month") &&
+                                    next !== span
+                                ) {
+                                    onNavigate(spanQuery(from, to, next));
+                                }
+                            }}
+                        >
+                            <ToggleGroupItem value="week">
+                                <CalendarRangeIcon
+                                    className="size-4"
+                                    strokeWidth={1.75}
+                                />
+                                Week
+                            </ToggleGroupItem>
+                            <ToggleGroupItem value="month">
+                                <CalendarDaysIcon
+                                    className="size-4"
+                                    strokeWidth={1.75}
+                                />
+                                Month
+                            </ToggleGroupItem>
+                        </ToggleGroup>
                     </div>
                     <div className="flex items-center gap-1">
                         <Button
@@ -161,37 +190,6 @@ export function LoggedChart({
                         </Button>
                     </div>
                     <div className="flex items-center gap-1 justify-end">
-                        <ToggleGroup
-                            variant="outline"
-                            size="sm"
-                            spacing={0}
-                            value={[span]}
-                            onValueChange={(value) => {
-                                const next = value.at(-1);
-
-                                if (
-                                    (next === "week" || next === "month") &&
-                                    next !== span
-                                ) {
-                                    onNavigate(spanQuery(from, to, next));
-                                }
-                            }}
-                        >
-                            <ToggleGroupItem value="week">
-                                <CalendarRangeIcon
-                                    className="size-4"
-                                    strokeWidth={1.75}
-                                />
-                                Week
-                            </ToggleGroupItem>
-                            <ToggleGroupItem value="month">
-                                <CalendarDaysIcon
-                                    className="size-4"
-                                    strokeWidth={1.75}
-                                />
-                                Month
-                            </ToggleGroupItem>
-                        </ToggleGroup>
                         <Button
                             type="button"
                             size="sm"
@@ -283,7 +281,7 @@ export function LoggedChart({
                     </BarChart>
                 </ChartContainer>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="border-b">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground max-w-5xl mx-auto">
                     <span className="flex items-center gap-1.5">
                         <span className="size-2 rounded-sm bg-tw-pink" />
@@ -323,14 +321,16 @@ function chartPoints(
     const dates = eachDate(from, to);
 
     if (dates.length === 0) {
-        return [...days].reverse().map((day) =>
-            point(
-                day.date,
-                splitLogged(day),
-                chartAbsence(day.absence),
-                holidayNames.get(day.date) ?? null,
-            ),
-        );
+        return [...days]
+            .reverse()
+            .map((day) =>
+                point(
+                    day.date,
+                    splitLogged(day),
+                    chartAbsence(day.absence),
+                    holidayNames.get(day.date) ?? null,
+                ),
+            );
     }
 
     return dates.map((date) =>

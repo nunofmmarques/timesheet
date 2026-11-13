@@ -73,42 +73,49 @@ export default function Timesheet({
         <>
             <Head title="Timesheet" />
             <Toaster />
-            <main className="flex flex-col gap-6 px-4 py-8">
-                <div className="mx-auto w-full max-w-5xl">
-                    <header className="flex flex-col gap-4">
-                        <div className="flex max-w-xl flex-col gap-1">
-                            <h1 className="font-heading text-2xl font-medium tracking-tight">
-                                Timesheet
-                            </h1>
-                            <p className="text-sm text-muted-foreground">
-                                Projects and commits for each day, with the
-                                working day split across them.
-                            </p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                            <RepositorySheet
-                                repositories={repositories}
-                                discoverRoots={discoverRoots}
-                            />
-                            <TeamworkSheet
-                                repositories={repositories}
-                                projects={teamworkProjects}
-                                discoverRoots={discoverRoots}
-                                configured={teamworkConfigured}
-                                error={teamworkError}
-                            />
-                            <ConstantsSheet
-                                constants={constants}
-                                projects={teamworkProjects}
-                                configured={teamworkConfigured}
-                                error={teamworkError}
-                            />
-                            <TimeOffSheet absences={absences} />
-                            <HolidaysSheet holidays={holidays} year={from.slice(0, 4)} />
+            <header className="sticky top-0 z-30 border-b bg-background">
+                <div className="mx-auto flex h-14 w-full max-w-5xl items-center gap-2">
+                    <h1 className="shrink-0 pr-2 font-heading text-sm font-semibold tracking-tight">
+                        Timesheet
+                    </h1>
+                    <nav
+                        aria-label="Timesheet"
+                        className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
+                    >
+                        <RepositorySheet
+                            repositories={repositories}
+                            discoverRoots={discoverRoots}
+                        />
+                        <TeamworkSheet
+                            repositories={repositories}
+                            projects={teamworkProjects}
+                            discoverRoots={discoverRoots}
+                            configured={teamworkConfigured}
+                            error={teamworkError}
+                        />
+                        <div
+                            className="mx-1.5 h-4 w-px shrink-0 bg-border"
+                            aria-hidden
+                        />
+                        <ConstantsSheet
+                            constants={constants}
+                            projects={teamworkProjects}
+                            configured={teamworkConfigured}
+                            error={teamworkError}
+                        />
+                        <TimeOffSheet absences={absences} />
+                        <HolidaysSheet
+                            holidays={holidays}
+                            year={from.slice(0, 4)}
+                        />
+                        <div className="ml-auto flex shrink-0 items-center">
                             <SettingsSheet settings={settings} />
                         </div>
-                    </header>
-
+                    </nav>
+                </div>
+            </header>
+            <main className="flex flex-col gap-6 px-4 pb-8">
+                <div className="mx-auto w-full max-w-5xl empty:hidden">
                     {teamworkTimeError !== null && (
                         <Alert>
                             <TriangleAlertIcon />

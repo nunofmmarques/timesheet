@@ -1,14 +1,15 @@
-import { router } from '@inertiajs/react';
-import { Settings2Icon } from 'lucide-react';
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { router } from "@inertiajs/react";
+import { Settings2Icon, UserIcon, UserRoundCogIcon } from "lucide-react";
+import { useState } from "react";
+import { sheetNavTriggerClass } from "@/components/timesheet/sheet-nav";
+import { Button } from "@/components/ui/button";
 import {
     Field,
     FieldDescription,
     FieldGroup,
     FieldLabel,
-} from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import {
     Sheet,
     SheetContent,
@@ -17,16 +18,16 @@ import {
     SheetHeader,
     SheetTitle,
     SheetTrigger,
-} from '@/components/ui/sheet';
-import type { TimesheetSettings } from '@/types/settings';
+} from "@/components/ui/sheet";
+import type { TimesheetSettings } from "@/types/settings";
 
 export function SettingsSheet({ settings }: { settings: TimesheetSettings }) {
     const [authorEmail, setAuthorEmail] = useState(settings.authorEmail);
 
     return (
         <Sheet>
-            <SheetTrigger render={<Button variant="outline" />}>
-                <Settings2Icon data-icon="inline-start" />
+            <SheetTrigger className={sheetNavTriggerClass}>
+                <UserRoundCogIcon />
                 Author
             </SheetTrigger>
             <SheetContent>
@@ -63,7 +64,7 @@ export function SettingsSheet({ settings }: { settings: TimesheetSettings }) {
                     <Button
                         onClick={() => {
                             router.put(
-                                '/settings',
+                                "/settings",
                                 { author_email: authorEmail },
                                 {
                                     preserveScroll: true,

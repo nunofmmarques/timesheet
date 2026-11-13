@@ -7,6 +7,7 @@ import {
     Trash2Icon,
 } from "lucide-react";
 import { useState } from "react";
+import { sheetNavTriggerClass } from "@/components/timesheet/sheet-nav";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -73,8 +74,8 @@ export function HolidaysSheet({
                 }
             }}
         >
-            <SheetTrigger render={<Button variant="outline" />}>
-                <FlagIcon data-icon="inline-start" />
+            <SheetTrigger className={sheetNavTriggerClass}>
+                <FlagIcon />
                 Holidays
             </SheetTrigger>
             <SheetContent className="data-[side=right]:sm:max-w-md">

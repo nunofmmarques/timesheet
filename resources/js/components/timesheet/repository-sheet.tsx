@@ -2,6 +2,10 @@ import { router, usePage } from '@inertiajs/react';
 import { FolderSearchIcon, SearchIcon, TrashIcon } from 'lucide-react';
 import { useState } from 'react';
 import { FolderMark, folderMark } from '@/components/timesheet/folder-mark';
+import {
+    sheetNavCountClass,
+    sheetNavTriggerClass,
+} from '@/components/timesheet/sheet-nav';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import {
@@ -62,10 +66,10 @@ export function RepositorySheet({
 
     return (
         <Sheet>
-            <SheetTrigger render={<Button variant="outline" />}>
-                <FolderSearchIcon data-icon="inline-start" />
+            <SheetTrigger className={sheetNavTriggerClass}>
+                <FolderSearchIcon />
                 Repositories
-                <span className="text-muted-foreground">
+                <span className={sheetNavCountClass}>
                     {enabled.length}/{repositories.length}
                 </span>
             </SheetTrigger>

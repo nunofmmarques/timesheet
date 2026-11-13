@@ -1,6 +1,7 @@
 import { router, useForm } from '@inertiajs/react';
 import { PencilIcon, PlusIcon, RepeatIcon, SearchIcon, Trash2Icon } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { sheetNavTriggerClass } from '@/components/timesheet/sheet-nav';
 import { Button } from '@/components/ui/button';
 import {
     Field,
@@ -75,8 +76,8 @@ export function ConstantsSheet({
 
     return (
         <Sheet>
-            <SheetTrigger render={<Button variant="outline" />}>
-                <RepeatIcon data-icon="inline-start" />
+            <SheetTrigger className={sheetNavTriggerClass}>
+                <RepeatIcon />
                 Constants
             </SheetTrigger>
             <SheetContent className="data-[side=right]:sm:max-w-md">
