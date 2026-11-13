@@ -131,6 +131,18 @@ class TeamworkTimelogs
         }
     }
 
+    public function delete(int $timelogId): void
+    {
+        $response = Http::withBasicAuth($this->token(), 'x')
+            ->acceptJson()
+            ->timeout(20)
+            ->delete($this->url().'/projects/api/v3/time/'.$timelogId.'.json');
+
+        if ($response->failed()) {
+            throw new RuntimeException($this->failure($response, 'Teamwork could not delete this time.'));
+        }
+    }
+
     /**
      * @param  array<mixed>  $log
      * @param  array<array-key, mixed>  $projects

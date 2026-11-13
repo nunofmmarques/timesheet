@@ -20,6 +20,7 @@ import {
     EmptyTitle,
 } from "@/components/ui/empty";
 import { Toaster } from "@/components/ui/sonner";
+import { todayInLisbon } from "@/lib/timesheet";
 import type { TimesheetPageProps } from "@/types/timesheet";
 
 export default function Timesheet({
@@ -37,6 +38,10 @@ export default function Timesheet({
     settings,
     discoverRoots,
 }: TimesheetPageProps) {
+    const today = todayInLisbon();
+    const listedDays = isCurrentMonth(from, to, today)
+        ? days.filter((day) => day.date <= today)
+        : days;
     const page = usePage().props;
     const flash = page.flash as { status?: string | null } | undefined;
     const toasted = useRef<string | null>(null);
@@ -186,7 +191,7 @@ export default function Timesheet({
 
                 <div className="mx-auto w-full max-w-5xl">
                     <div className="flex flex-col gap-8">
-                        {days.map((day) => (
+                        {listedDays.map((day) => (
                             <DaySection
                                 key={day.date}
                                 day={day}
@@ -203,4 +208,19 @@ export default function Timesheet({
             </main>
         </>
     );
+}
+
+function isCurrentMonth(from: string, to: string, today: string): boolean {
+    const [year, month] = today.split("-").map(Number);
+
+    if (!year || !month) {
+        return false;
+    }
+
+    const monthText = String(month).padStart(2, "0");
+    const start = `${year}-${monthText}-01`;
+    const last = new Date(year, month, 0).getDate();
+    const end = `${year}-${monthText}-${String(last).padStart(2, "0")}`;
+
+    return from === start && to === end;
 }

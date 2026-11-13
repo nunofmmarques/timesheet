@@ -1,7 +1,15 @@
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import {
+    CalendarDaysIcon,
+    CalendarRangeIcon,
+    ChevronLeftIcon,
+    ChevronRightIcon,
+} from "lucide-react";
 import { useId, useMemo, type MouseEvent, type MouseEventHandler } from "react";
 import { Bar, BarChart, ReferenceLine, XAxis, YAxis } from "recharts";
-import { AbsenceIcon, absencePartLabel } from "@/components/timesheet/absence-kind";
+import {
+    AbsenceIcon,
+    absencePartLabel,
+} from "@/components/timesheet/absence-kind";
 import { TeamworkLogo } from "@/components/timesheet/teamwork-logo";
 import { Button } from "@/components/ui/button";
 import {
@@ -107,7 +115,7 @@ export function LoggedChart({
             <CardHeader className="border-b items-center">
                 <CardTitle className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-3 max-w-5xl mx-auto">
                     <div className="flex items-center gap-2 text-sm font-medium">
-                        <TeamworkLogo />
+                        <TeamworkLogo variant="slate" />
                         Teamwork
                     </div>
                     <div className="flex items-center gap-1">
@@ -160,8 +168,18 @@ export function LoggedChart({
                                 }
                             }}
                         >
-                            <ToggleGroupItem value="week">Week</ToggleGroupItem>
+                            <ToggleGroupItem value="week">
+                                <CalendarRangeIcon
+                                    className="size-4"
+                                    strokeWidth={1.75}
+                                />
+                                Week
+                            </ToggleGroupItem>
                             <ToggleGroupItem value="month">
+                                <CalendarDaysIcon
+                                    className="size-4"
+                                    strokeWidth={1.75}
+                                />
                                 Month
                             </ToggleGroupItem>
                         </ToggleGroup>
@@ -171,6 +189,7 @@ export function LoggedChart({
                             variant="outline"
                             onClick={() => onNavigate(todayQuery(span))}
                         >
+                            <div className="rounded-full size-2 bg-tw-orange" />
                             Today
                         </Button>
                     </div>
@@ -209,23 +228,6 @@ export function LoggedChart({
                                     strokeWidth="3"
                                 />
                             </pattern>
-                            <pattern
-                                id={`${patternId}-lines`}
-                                width="8"
-                                height="8"
-                                patternUnits="userSpaceOnUse"
-                                patternTransform="rotate(45)"
-                            >
-                                <line
-                                    x1="0"
-                                    y1="0"
-                                    x2="0"
-                                    y2="8"
-                                    stroke="var(--muted-foreground)"
-                                    strokeOpacity="0.45"
-                                    strokeWidth="3"
-                                />
-                            </pattern>
                         </defs>
                         <XAxis
                             dataKey="date"
@@ -233,7 +235,7 @@ export function LoggedChart({
                             axisLine={false}
                             tickMargin={6}
                             interval={0}
-                            height={compact ? 46 : 40}
+                            height={compact ? 64 : 48}
                             tick={(props) => (
                                 <DayTick
                                     x={props.x}
@@ -286,10 +288,6 @@ export function LoggedChart({
                         <span className="size-2 rounded-sm bg-tw-purple" />
                         Time off
                     </span>
-                    <span className="flex items-center gap-1.5">
-                        <span className="size-2 rounded-sm bg-tw-orange" />
-                        Today
-                    </span>
                 </div>
             </CardFooter>
         </Card>
@@ -325,9 +323,9 @@ function chartPoints(
 }
 
 function chartAbsence(
-    absence: TimesheetDay["absence"],
+    absence: TimesheetDay["absence"] | undefined,
 ): ChartPoint["absence"] {
-    if (absence === null) {
+    if (absence == null) {
         return null;
     }
 
@@ -642,10 +640,7 @@ function absenceBar(
 
     return {
         x: column.x,
-        y:
-            column.y +
-            column.height -
-            (part === "morning" ? half : dayHeight),
+        y: column.y + column.height - (part === "morning" ? half : dayHeight),
         width: column.width,
         height: half,
     };
@@ -712,8 +707,7 @@ function ColumnShape({
               ? { x, y: slot.y, width, height: slot.height }
               : slot;
     const weekend = Boolean(payload?.weekend) && column;
-    const today = payload?.today === true;
-    const absence = Boolean(payload?.absence) && column;
+    const absence = Boolean(payload?.absence) && !payload?.weekend && column;
     const absenceFrame =
         absence && column
             ? absenceBar(column, payload?.absence?.part ?? "day", scale)
@@ -731,17 +725,6 @@ function ColumnShape({
                     onClick={select}
                 />
             ) : null}
-            {today && !absence && column && (
-                <rect
-                    x={column.x}
-                    y={column.y}
-                    width={column.width}
-                    height={column.height}
-                    rx={3}
-                    fill="color-mix(in oklab, var(--color-tw-orange) 16%, transparent)"
-                    pointerEvents="none"
-                />
-            )}
             {absence && absenceFrame && (
                 <rect
                     x={absenceFrame.x}
@@ -753,7 +736,7 @@ function ColumnShape({
                     {...events}
                 />
             )}
-            {weekend && !absence && column && (
+            {weekend && column && (
                 <rect
                     x={column.x}
                     y={column.y}
@@ -762,17 +745,6 @@ function ColumnShape({
                     rx={3}
                     fill={`url(#${patternId})`}
                     {...events}
-                />
-            )}
-            {weekend && absence && column && (
-                <rect
-                    x={column.x}
-                    y={column.y}
-                    width={column.width}
-                    height={column.height}
-                    rx={3}
-                    fill={`url(#${patternId}-lines)`}
-                    pointerEvents="none"
                 />
             )}
             {billableHeight > 0 &&
@@ -805,19 +777,6 @@ function ColumnShape({
                     {...events}
                 />
             )}
-            {today && !absence && column && (
-                <rect
-                    x={column.x}
-                    y={column.y}
-                    width={column.width}
-                    height={column.height}
-                    rx={3}
-                    fill="none"
-                    stroke="var(--color-tw-orange)"
-                    strokeWidth={1}
-                    pointerEvents="none"
-                />
-            )}
             {absence && absenceFrame && (
                 <rect
                     x={absenceFrame.x}
@@ -826,11 +785,7 @@ function ColumnShape({
                     height={absenceFrame.height}
                     rx={3}
                     fill="none"
-                    stroke={
-                        today
-                            ? "var(--color-tw-orange)"
-                            : "var(--color-tw-purple)"
-                    }
+                    stroke="var(--color-tw-purple)"
                     strokeWidth={1}
                     pointerEvents="none"
                 />
@@ -904,41 +859,70 @@ function DayTick({
     compact?: boolean;
     onSelect: (date: string) => void;
 }) {
+    const over = (point?.minutes ?? 0) > FULL_DAY;
+    const left = Number(x);
+    const top = Number(y);
+    const labelEnd = compact ? 33 : 23;
+
     return (
-        <text
-            x={x}
-            y={y}
-            textAnchor="middle"
-            className={
-                point?.today
-                    ? "cursor-pointer fill-tw-orange text-[10px] font-medium"
-                    : point?.absence
-                      ? "cursor-pointer fill-tw-purple text-[10px] font-medium"
-                      : "cursor-pointer fill-muted-foreground text-[10px]"
-            }
+        <g
+            className="cursor-pointer"
             onClick={() => {
                 if (point !== undefined) {
                     onSelect(point.date);
                 }
             }}
         >
-            <tspan x={x} dy={11} className="font-medium">
-                {point?.weekday}
-            </tspan>
-            {compact ? (
-                <>
-                    <tspan x={x} dy={11}>
-                        {point?.day}
-                    </tspan>
-                    <tspan x={x} dy={11}>
-                        {point?.month}
-                    </tspan>
-                </>
-            ) : (
-                <tspan x={x} dy={12}>
-                    {point ? `${point.day} ${point.month}` : ""}
-                </tspan>
+            {over && (
+                <g
+                    transform={`translate(${left}, ${top + labelEnd + 12})`}
+                    aria-label="More than 8 hours"
+                >
+                    <title>More than 8 hours</title>
+                    <path
+                        d="M0,-6.5 L5.2,3.2 L-5.2,3.2 Z"
+                        className="fill-red-600"
+                    />
+                    <path
+                        d="M-0.7,-2.4 h1.4 v3.1 h-1.4 Z M-0.7,1.5 h1.4 v1.4 h-1.4 Z"
+                        className="fill-white"
+                    />
+                </g>
             )}
-        </text>
+            <text
+                x={x}
+                y={y}
+                textAnchor="middle"
+                className={
+                    point?.today
+                        ? "fill-tw-orange text-[10px] font-bold"
+                        : point?.absence
+                          ? "fill-tw-purple text-[10px] font-medium"
+                          : "fill-muted-foreground text-[10px]"
+                }
+            >
+                <tspan
+                    x={x}
+                    dy={11}
+                    className={point?.today ? "font-bold" : "font-medium"}
+                >
+                    {point?.weekday}
+                </tspan>
+                {compact ? (
+                    <>
+                        <tspan x={x} dy={11}>
+                            {point?.day}
+                        </tspan>
+                        <tspan x={x} dy={11}>
+                            {point?.month}
+                        </tspan>
+                    </>
+                ) : (
+                    <tspan x={x} dy={12}>
+                        {point ? `${point.day} ${point.month}` : ""}
+                    </tspan>
+                )}
+            </text>
+        </g>
     );
 }

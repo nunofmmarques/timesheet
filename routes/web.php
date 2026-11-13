@@ -3,6 +3,7 @@
 use App\Actions\DeleteAbsence;
 use App\Actions\DeleteConstantTask;
 use App\Actions\DeleteRepository;
+use App\Actions\DeleteTeamworkTime;
 use App\Actions\IgnoreConstantDay;
 use App\Actions\ListTeamworkTasks;
 use App\Actions\LogConstantTask;
@@ -42,3 +43,6 @@ Route::post('/teamwork/time', LogTeamworkTime::class)->name('teamwork.time.store
 Route::put('/teamwork/time/{timelog}', UpdateTeamworkTime::class)
     ->whereNumber('timelog')
     ->name('teamwork.time.update');
+Route::delete('/teamwork/time/{timelog}', DeleteTeamworkTime::class)
+    ->whereNumber('timelog')
+    ->name('teamwork.time.destroy');

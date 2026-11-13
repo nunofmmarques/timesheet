@@ -3,6 +3,7 @@
 namespace App\Actions;
 
 use App\Models\Repository;
+use App\Services\TeamworkProjects;
 use App\Services\TeamworkTasks;
 use App\Services\TeamworkTimelogs;
 use App\Support\Clock;
@@ -13,7 +14,7 @@ use Throwable;
 
 class LogTeamworkTime
 {
-    public function __invoke(Request $request, TeamworkTasks $tasks, TeamworkTimelogs $timelogs): RedirectResponse
+    public function __invoke(Request $request, TeamworkProjects $projects, TeamworkTasks $tasks, TeamworkTimelogs $timelogs): RedirectResponse
     {
         $data = $request->validate([
             'project_id' => ['required', 'integer'],
@@ -27,9 +28,11 @@ class LogTeamworkTime
         $projectId = (int) $data['project_id'];
         $taskId = (int) $data['task_id'];
 
-        if (! Repository::query()->where('teamwork_project_id', $projectId)->exists()) {
+        $linked = Repository::query()->where('teamwork_project_id', $projectId)->exists();
+
+        if (! $linked && $projects->find($projectId) === null) {
             throw ValidationException::withMessages([
-                'project_id' => 'Link this repository to a Teamwork project first.',
+                'project_id' => 'Choose a Teamwork project.',
             ]);
         }
 
@@ -44,7 +47,7 @@ class LogTeamworkTime
         try {
             if ($tasks->projectId($taskId) !== $projectId) {
                 throw ValidationException::withMessages([
-                    'task_id' => 'That task is not on the linked project.',
+                    'task_id' => 'That task is not on this project.',
                 ]);
             }
 

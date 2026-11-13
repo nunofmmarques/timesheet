@@ -1,6 +1,13 @@
-import { useForm } from "@inertiajs/react";
-import { CheckIcon, SearchIcon, TriangleAlertIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { router, useForm } from "@inertiajs/react";
+import {
+    CheckIcon,
+    FolderKanbanIcon,
+    ListTodoIcon,
+    SearchIcon,
+    Trash2Icon,
+    TriangleAlertIcon,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { TeamworkLogo } from "@/components/timesheet/teamwork-logo";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -29,7 +36,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { formatDuration } from "@/lib/timesheet";
-import type { TimesheetLog } from "@/types/timesheet";
+import type { TeamworkProject, TimesheetLog } from "@/types/timesheet";
 
 type TeamworkTask = {
     id: number;
@@ -42,6 +49,7 @@ export function LogTimeDialog({
     open,
     onOpenChange,
     projectId,
+    projects = [],
     projectName,
     rowKey,
     date,
@@ -54,7 +62,8 @@ export function LogTimeDialog({
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    projectId: number;
+    projectId: number | null;
+    projects?: TeamworkProject[];
     projectName: string;
     rowKey: string;
     date: string;
@@ -71,16 +80,23 @@ export function LogTimeDialog({
     } | null;
 }) {
     const form = useForm({
-        project_id: projectId,
+        project_id: projectId ?? 0,
         task_id: editing?.taskId ?? 0,
         date,
         start: start ?? "",
         end: end ?? "",
         billable: editing?.billable ?? true,
     });
+    const [chosenProject, setChosenProject] = useState<number | null>(
+        projectId,
+    );
+    const [projectQuery, setProjectQuery] = useState("");
     const [tasks, setTasks] = useState<TeamworkTask[] | null>(null);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [query, setQuery] = useState("");
+    const [confirming, setConfirming] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
     const needle = query.trim().toLowerCase();
     const visible = (tasks ?? []).filter((task) => {
         if (needle === "") {
@@ -108,10 +124,67 @@ export function LogTimeDialog({
         form.data.end,
         editing?.id,
     );
+    const projectNeedle = projectQuery.trim().toLowerCase();
+    const loggedProjectIds = useMemo(() => {
+        const ids: number[] = [];
+
+        for (const entry of logged) {
+            if (entry.projectId === null || ids.includes(entry.projectId)) {
+                continue;
+            }
+
+            ids.push(entry.projectId);
+        }
+
+        return ids;
+    }, [logged]);
+    const loggedTaskIds = useMemo(() => {
+        const ids: number[] = [];
+
+        for (const entry of logged) {
+            if (
+                entry.projectId !== chosenProject ||
+                entry.taskId === null ||
+                ids.includes(entry.taskId)
+            ) {
+                continue;
+            }
+
+            ids.push(entry.taskId);
+        }
+
+        return ids;
+    }, [logged, chosenProject]);
+    const visibleProjects = useMemo(() => {
+        const matches = projects.filter((project) =>
+            projectNeedle === ""
+                ? true
+                : project.name.toLowerCase().includes(projectNeedle),
+        );
+        const suggested = loggedProjectIds
+            .map((id) => matches.find((project) => project.id === id))
+            .filter((project) => project !== undefined);
+        const rest = matches.filter(
+            (project) => !loggedProjectIds.includes(project.id),
+        );
+
+        return { suggested, rest };
+    }, [projects, projectNeedle, loggedProjectIds]);
+    const visibleTasks = useMemo(() => {
+        const suggested = loggedTaskIds
+            .map((id) => visible.find((task) => task.id === id))
+            .filter((task) => task !== undefined);
+        const rest = visible.filter((task) => !loggedTaskIds.includes(task.id));
+
+        return { suggested, rest };
+    }, [visible, loggedTaskIds]);
+    const chosenName =
+        projects.find((project) => project.id === chosenProject)?.name ??
+        (projectId !== null ? projectName : "");
     const suggestion =
         start !== null && end !== null
             ? `${dateLabel} · ${start}–${end} · ${formatDuration(minutes)}`
-            : `${dateLabel} · ${formatDuration(minutes)}`;
+            : dateLabel;
 
     useEffect(() => {
         if (!open) {
@@ -119,7 +192,7 @@ export function LogTimeDialog({
         }
 
         form.setData({
-            project_id: projectId,
+            project_id: projectId ?? 0,
             task_id: editing?.taskId ?? 0,
             date,
             start: start ?? "",
@@ -128,12 +201,24 @@ export function LogTimeDialog({
         });
         form.clearErrors();
         setQuery("");
+        setProjectQuery("");
+        setChosenProject(projectId);
+        setTasks(null);
+        setLoadError(null);
+    }, [open, projectId, editing?.id]);
+
+    useEffect(() => {
+        if (!open || chosenProject === null) {
+            return;
+        }
+
+        form.setData("project_id", chosenProject);
         setTasks(null);
         setLoadError(null);
 
         const controller = new AbortController();
 
-        fetch(`/teamwork/projects/${projectId}/tasks`, {
+        fetch(`/teamwork/projects/${chosenProject}/tasks`, {
             headers: { Accept: "application/json" },
             signal: controller.signal,
         })
@@ -163,7 +248,7 @@ export function LogTimeDialog({
             });
 
         return () => controller.abort();
-    }, [open, projectId, editing?.id]);
+    }, [open, chosenProject, editing?.id]);
 
     function submit(event: FormEvent) {
         event.preventDefault();
@@ -194,33 +279,197 @@ export function LogTimeDialog({
         form.post("/teamwork/time", options);
     }
 
+    function destroy() {
+        if (editing === null) {
+            return;
+        }
+
+        setDeleting(true);
+        setDeleteError(null);
+        router.delete(`/teamwork/time/${editing.id}`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setConfirming(false);
+                onOpenChange(false);
+            },
+            onError: (errors) => {
+                setDeleteError(
+                    errors.task_id ?? "Teamwork could not delete this time.",
+                );
+            },
+            onFinish: () => setDeleting(false),
+        });
+    }
+
+    function projectButton(project: TeamworkProject) {
+        return (
+            <Button
+                key={project.id}
+                type="button"
+                variant={project.id === chosenProject ? "secondary" : "ghost"}
+                className="h-auto w-full justify-start px-2 py-1.5"
+                onClick={() => {
+                    setChosenProject(project.id);
+                    form.setData({
+                        ...form.data,
+                        project_id: project.id,
+                        task_id: 0,
+                    });
+                    setQuery("");
+                }}
+            >
+                <FolderKanbanIcon />
+                <span className="truncate">{project.name}</span>
+                {project.id === chosenProject && (
+                    <CheckIcon className="ml-auto" />
+                )}
+            </Button>
+        );
+    }
+
+    function taskButton(task: TeamworkTask) {
+        return (
+            <Button
+                key={task.id}
+                type="button"
+                variant={task.id === form.data.task_id ? "secondary" : "ghost"}
+                className="h-auto w-full justify-start px-2 py-1.5"
+                onClick={() => form.setData("task_id", task.id)}
+            >
+                <ListTodoIcon />
+                <span className="flex min-w-0 flex-col items-start">
+                    <span className="truncate">{taskPath(task)}</span>
+                    {task.tasklist !== "" && (
+                        <span className="truncate text-muted-foreground">
+                            {task.tasklist}
+                        </span>
+                    )}
+                </span>
+            </Button>
+        );
+    }
+
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog
+            open={open}
+            onOpenChange={(next) => {
+                if (!next) {
+                    setConfirming(false);
+                    setDeleteError(null);
+                }
+
+                onOpenChange(next);
+            }}
+        >
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                        <TeamworkLogo />
+                        <TeamworkLogo variant="slate" />
                         {editing ? "Edit time" : "Log time"}
                     </DialogTitle>
                     <DialogDescription>
-                        {projectName}.
-                        {!editing && (
+                        {projectId === null ? (
+                            dateLabel
+                        ) : (
                             <>
-                                <br />
-                                <span className="text-xs">
-                                    Suggested: {suggestion}.
-                                </span>
+                                {projectName}.
+                                {!editing && (
+                                    <>
+                                        <br />
+                                        <span className="text-xs">
+                                            Suggested: {suggestion}.
+                                        </span>
+                                    </>
+                                )}
                             </>
                         )}
                     </DialogDescription>
                 </DialogHeader>
                 <form className="flex flex-col gap-4" onSubmit={submit}>
                     <FieldGroup>
+                        {projectId === null && (
+                            <Field>
+                                <FieldLabel
+                                    className="items-center"
+                                    htmlFor={`project-search-${rowKey}`}
+                                >
+                                    <FolderKanbanIcon className="size-3.5" />
+                                    Project
+                                </FieldLabel>
+                                <InputGroup className="!rounded-b-none border-b-0 -mb-2">
+                                    <InputGroupAddon>
+                                        <SearchIcon />
+                                    </InputGroupAddon>
+                                    <InputGroupInput
+                                        id={`project-search-${rowKey}`}
+                                        value={projectQuery}
+                                        placeholder="Search projects"
+                                        onChange={(event) =>
+                                            setProjectQuery(event.target.value)
+                                        }
+                                    />
+                                </InputGroup>
+                                <ScrollArea className="h-40 rounded-b-lg border">
+                                    {visibleProjects.suggested.length === 0 &&
+                                        visibleProjects.rest.length === 0 && (
+                                            <p className="px-3 py-2 text-muted-foreground">
+                                                No projects match.
+                                            </p>
+                                        )}
+                                    <div className="flex flex-col p-1">
+                                        {visibleProjects.suggested.length >
+                                            0 && (
+                                            <p className="px-2 pt-1 pb-0.5 text-xs font-medium text-muted-foreground">
+                                                Logged today
+                                            </p>
+                                        )}
+                                        {visibleProjects.suggested.map(
+                                            (project) => projectButton(project),
+                                        )}
+                                        {visibleProjects.suggested.length > 0 &&
+                                            visibleProjects.rest.length > 0 && (
+                                                <p className="px-2 pt-2 pb-0.5 text-xs font-medium text-muted-foreground">
+                                                    All projects
+                                                </p>
+                                            )}
+                                        {visibleProjects.rest.map((project) =>
+                                            projectButton(project),
+                                        )}
+                                    </div>
+                                </ScrollArea>
+                                {chosenName !== "" && (
+                                    <Alert>
+                                        <CheckIcon />
+                                        <AlertTitle>Selected</AlertTitle>
+                                        <AlertDescription>
+                                            {chosenName}
+                                        </AlertDescription>
+                                    </Alert>
+                                )}
+                                <FieldError
+                                    errors={
+                                        form.errors.project_id
+                                            ? [
+                                                  {
+                                                      message:
+                                                          form.errors
+                                                              .project_id,
+                                                  },
+                                              ]
+                                            : undefined
+                                    }
+                                />
+                            </Field>
+                        )}
                         <Field>
-                            <FieldLabel htmlFor={`task-search-${rowKey}`}>
+                            <FieldLabel
+                                className="items-center"
+                                htmlFor={`task-search-${rowKey}`}
+                            >
+                                <ListTodoIcon className="size-3.5" />
                                 Task
                             </FieldLabel>
-                            <InputGroup>
+                            <InputGroup className="!rounded-b-none border-b-0 -mb-2">
                                 <InputGroupAddon>
                                     <SearchIcon />
                                 </InputGroupAddon>
@@ -233,50 +482,50 @@ export function LogTimeDialog({
                                     }
                                 />
                             </InputGroup>
-                            <ScrollArea className="h-56 rounded-lg border">
-                                {tasks === null && loadError === null && (
-                                    <p className="flex items-center gap-2 px-3 py-2 text-muted-foreground">
-                                        <Spinner />
-                                        Loading tasks
+                            <ScrollArea className="h-56 rounded-b-lg border">
+                                {chosenProject === null && (
+                                    <p className="px-3 py-2 text-muted-foreground">
+                                        Choose a project first.
                                     </p>
                                 )}
+                                {chosenProject !== null &&
+                                    tasks === null &&
+                                    loadError === null && (
+                                        <p className="flex items-center gap-2 px-3 py-2 text-muted-foreground">
+                                            <Spinner />
+                                            Loading tasks
+                                        </p>
+                                    )}
                                 {loadError !== null && (
                                     <p className="px-3 py-2 text-muted-foreground">
                                         {loadError}
                                     </p>
                                 )}
-                                {tasks !== null && visible.length === 0 && (
-                                    <p className="px-3 py-2 text-muted-foreground">
-                                        No tasks match.
-                                    </p>
-                                )}
+                                {tasks !== null &&
+                                    visibleTasks.suggested.length === 0 &&
+                                    visibleTasks.rest.length === 0 && (
+                                        <p className="px-3 py-2 text-muted-foreground">
+                                            No tasks match.
+                                        </p>
+                                    )}
                                 <div className="flex flex-col p-1">
-                                    {visible.map((task) => (
-                                        <Button
-                                            key={task.id}
-                                            type="button"
-                                            variant={
-                                                task.id === form.data.task_id
-                                                    ? "secondary"
-                                                    : "ghost"
-                                            }
-                                            className="h-auto w-full justify-start px-2 py-1.5"
-                                            onClick={() =>
-                                                form.setData("task_id", task.id)
-                                            }
-                                        >
-                                            <span className="flex min-w-0 flex-col items-start">
-                                                <span className="truncate">
-                                                    {taskPath(task)}
-                                                </span>
-                                                {task.tasklist !== "" && (
-                                                    <span className="truncate text-muted-foreground">
-                                                        {task.tasklist}
-                                                    </span>
-                                                )}
-                                            </span>
-                                        </Button>
-                                    ))}
+                                    {visibleTasks.suggested.length > 0 && (
+                                        <p className="px-2 pt-1 pb-0.5 text-xs font-medium text-muted-foreground">
+                                            Logged today
+                                        </p>
+                                    )}
+                                    {visibleTasks.suggested.map((task) =>
+                                        taskButton(task),
+                                    )}
+                                    {visibleTasks.suggested.length > 0 &&
+                                        visibleTasks.rest.length > 0 && (
+                                            <p className="px-2 pt-2 pb-0.5 text-xs font-medium text-muted-foreground">
+                                                All tasks
+                                            </p>
+                                        )}
+                                    {visibleTasks.rest.map((task) =>
+                                        taskButton(task),
+                                    )}
                                 </div>
                             </ScrollArea>
                             {(selected || currentTask) && (
@@ -303,53 +552,63 @@ export function LogTimeDialog({
                         </Field>
                         <div className="flex items-start gap-3">
                             <div className="grid min-w-0 flex-1 grid-cols-2 gap-3">
-                            <Field>
-                                <FieldLabel htmlFor={`log-start-${rowKey}`}>
-                                    Start
-                                </FieldLabel>
-                                <Input
-                                    id={`log-start-${rowKey}`}
-                                    type="time"
-                                    value={form.data.start}
-                                    aria-invalid={
-                                        form.errors.start !== undefined
-                                    }
-                                    onChange={(event) =>
-                                        form.setData(
-                                            "start",
-                                            event.target.value,
-                                        )
-                                    }
-                                />
-                                <FieldError
-                                    errors={
-                                        form.errors.start
-                                            ? [{ message: form.errors.start }]
-                                            : undefined
-                                    }
-                                />
-                            </Field>
-                            <Field>
-                                <FieldLabel htmlFor={`log-end-${rowKey}`}>
-                                    End
-                                </FieldLabel>
-                                <Input
-                                    id={`log-end-${rowKey}`}
-                                    type="time"
-                                    value={form.data.end}
-                                    aria-invalid={form.errors.end !== undefined}
-                                    onChange={(event) =>
-                                        form.setData("end", event.target.value)
-                                    }
-                                />
-                                <FieldError
-                                    errors={
-                                        form.errors.end
-                                            ? [{ message: form.errors.end }]
-                                            : undefined
-                                    }
-                                />
-                            </Field>
+                                <Field>
+                                    <FieldLabel htmlFor={`log-start-${rowKey}`}>
+                                        Start
+                                    </FieldLabel>
+                                    <Input
+                                        id={`log-start-${rowKey}`}
+                                        type="time"
+                                        value={form.data.start}
+                                        aria-invalid={
+                                            form.errors.start !== undefined
+                                        }
+                                        onChange={(event) =>
+                                            form.setData(
+                                                "start",
+                                                event.target.value,
+                                            )
+                                        }
+                                    />
+                                    <FieldError
+                                        errors={
+                                            form.errors.start
+                                                ? [
+                                                      {
+                                                          message:
+                                                              form.errors.start,
+                                                      },
+                                                  ]
+                                                : undefined
+                                        }
+                                    />
+                                </Field>
+                                <Field>
+                                    <FieldLabel htmlFor={`log-end-${rowKey}`}>
+                                        End
+                                    </FieldLabel>
+                                    <Input
+                                        id={`log-end-${rowKey}`}
+                                        type="time"
+                                        value={form.data.end}
+                                        aria-invalid={
+                                            form.errors.end !== undefined
+                                        }
+                                        onChange={(event) =>
+                                            form.setData(
+                                                "end",
+                                                event.target.value,
+                                            )
+                                        }
+                                    />
+                                    <FieldError
+                                        errors={
+                                            form.errors.end
+                                                ? [{ message: form.errors.end }]
+                                                : undefined
+                                        }
+                                    />
+                                </Field>
                             </div>
                             <p className="mt-6 flex h-8 shrink-0 items-center text-sm font-medium tabular-nums">
                                 {span !== null ? formatDuration(span) : "—"}
@@ -377,21 +636,62 @@ export function LogTimeDialog({
                                 </AlertDescription>
                             </Alert>
                         )}
-                        <Field orientation="horizontal">
-                            <FieldLabel htmlFor={`log-billable-${rowKey}`}>
-                                Mark as billable
-                            </FieldLabel>
-                            <Switch
-                                id={`log-billable-${rowKey}`}
-                                checked={form.data.billable}
-                                onCheckedChange={(checked) =>
-                                    form.setData("billable", checked)
-                                }
-                            />
-                        </Field>
+                        <div className="flex items-start gap-3">
+                            <div className="grid min-w-0 flex-1 grid-cols-3 gap-3">
+                                <Field orientation="horizontal">
+                                    <FieldLabel
+                                        htmlFor={`log-billable-${rowKey}`}
+                                    >
+                                        Mark as billable
+                                    </FieldLabel>
+                                    <Switch
+                                        id={`log-billable-${rowKey}`}
+                                        checked={form.data.billable}
+                                        onCheckedChange={(checked) =>
+                                            form.setData("billable", checked)
+                                        }
+                                    />
+                                </Field>
+                            </div>
+                        </div>
                     </FieldGroup>
+                    {deleteError !== null && (
+                        <Alert variant="destructive">
+                            <TriangleAlertIcon />
+                            <AlertTitle>Could not delete</AlertTitle>
+                            <AlertDescription>{deleteError}</AlertDescription>
+                        </Alert>
+                    )}
                     <DialogFooter>
-                        <Button type="submit" disabled={form.processing}>
+                        {editing && (
+                            <Button
+                                type="button"
+                                variant="destructive"
+                                className="sm:mr-auto"
+                                disabled={form.processing || deleting}
+                                onClick={() => {
+                                    if (!confirming) {
+                                        setDeleteError(null);
+                                        setConfirming(true);
+
+                                        return;
+                                    }
+
+                                    destroy();
+                                }}
+                            >
+                                {deleting ? (
+                                    <Spinner data-icon="inline-start" />
+                                ) : (
+                                    <Trash2Icon data-icon="inline-start" />
+                                )}
+                                {confirming ? "Confirm delete" : "Delete"}
+                            </Button>
+                        )}
+                        <Button
+                            type="submit"
+                            disabled={form.processing || deleting}
+                        >
                             {form.processing && (
                                 <Spinner data-icon="inline-start" />
                             )}
@@ -466,7 +766,11 @@ function overlappingLogs(
     }
 
     return logged.filter((entry) => {
-        if (entry.id === ignoreId || entry.time === null || entry.minutes <= 0) {
+        if (
+            entry.id === ignoreId ||
+            entry.time === null ||
+            entry.minutes <= 0
+        ) {
             return false;
         }
 

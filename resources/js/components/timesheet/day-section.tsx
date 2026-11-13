@@ -4,14 +4,16 @@ import {
     ChevronDownIcon,
     ClockIcon,
     EllipsisIcon,
+    TriangleAlertIcon,
     GitBranchIcon,
     GitCommitHorizontalIcon,
+    ListTodoIcon,
     PencilIcon,
     RepeatIcon,
     SearchIcon,
     TreePalmIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
     AbsenceIcon,
     absencePartLabel,
@@ -19,6 +21,7 @@ import {
 import { LogTimeDialog } from "@/components/timesheet/log-time-dialog";
 import { TimeOffForm } from "@/components/timesheet/time-off-sheet";
 import { TeamworkLogo } from "@/components/timesheet/teamwork-logo";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +33,7 @@ import {
     Dialog,
     DialogContent,
     DialogDescription,
+    DialogFooter,
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
@@ -130,9 +134,11 @@ export function DaySection({
               });
 
     const fullDay = day.loggedMinutes >= 8 * 60;
+    const overLogged = day.loggedMinutes > 8 * 60;
+    const lunchOverlap = day.logged.some((entry) => overlapsLunch(entry));
     const today = day.date === todayInLisbon();
     const absenceRecord =
-        day.absence === null
+        day.absence == null
             ? null
             : (absences.find((item) => item.id === day.absence?.id) ?? null);
     const [timeOffOpen, setTimeOffOpen] = useState<"add" | "edit" | null>(null);
@@ -161,10 +167,21 @@ export function DaySection({
                     {today && (
                         <Badge className="bg-tw-orange text-white">Today</Badge>
                     )}
-                    {fullDay && (
+                    {fullDay && !overLogged && (
                         <Badge className="bg-green-600 text-white">
                             <CheckIcon data-icon="inline-start" />
                             8h logged
+                        </Badge>
+                    )}
+                    {overLogged && (
+                        <Badge className="bg-red-600 text-white">
+                            {formatDuration(day.loggedMinutes)} logged
+                        </Badge>
+                    )}
+                    {lunchOverlap && (
+                        <Badge className="bg-amber-500 text-white">
+                            <TriangleAlertIcon data-icon="inline-start" />
+                            13:00–14:00
                         </Badge>
                     )}
                 </div>
@@ -214,7 +231,7 @@ export function DaySection({
             </Dialog>
 
             <div className="overflow-hidden rounded-xl bg-card ring-1 ring-border">
-                {day.absence !== null && (
+                {day.absence != null && (
                     <AbsenceTime
                         absence={day.absence}
                         record={absenceRecord}
@@ -226,7 +243,11 @@ export function DaySection({
                     <ConstantTime day={day} pending={pending} />
                 )}
 
-                <LoggedTime day={day} />
+                <LoggedTime
+                    day={day}
+                    projects={projects}
+                    canLog={teamworkConfigured && teamworkError === null}
+                />
 
                 {rows.length > 0 && (
                     <Collapsible
@@ -242,15 +263,12 @@ export function DaySection({
                             <div className="flex flex-col divide-y border-t bg-card">
                                 {rows.map((row) => (
                                     <Collapsible key={row.key}>
-                                        <div className="flex items-center">
+                                        <div className="flex items-center gap-2">
                                             <CollapsibleTrigger
                                                 render={
                                                     <Button
                                                         variant="ghost"
-                                                        className={cn(
-                                                            contentGrid,
-                                                            "h-auto min-w-0 flex-1 justify-start rounded-none border-0 px-3 py-2 text-left font-normal whitespace-normal",
-                                                        )}
+                                                        className="grid h-auto min-w-0 flex-1 grid-cols-[7.5rem_9rem_minmax(0,1fr)] items-center justify-start gap-3 rounded-none border-0 py-2 pr-2 pl-3 text-left font-normal whitespace-normal"
                                                     />
                                                 }
                                             >
@@ -291,7 +309,6 @@ export function DaySection({
                                                         </span>
                                                     )}
                                                 </span>
-                                                <ChevronDownIcon className="transition-transform in-aria-expanded:rotate-180" />
                                             </CollapsibleTrigger>
                                             <TeamworkLink
                                                 rowKey={row.key}
@@ -316,6 +333,12 @@ export function DaySection({
                                                     teamworkError === null
                                                 }
                                             />
+                                            <CollapsibleTrigger
+                                                aria-label={`Toggle ${row.label}`}
+                                                className="mr-3 shrink-0 cursor-pointer"
+                                            >
+                                                <ChevronDownIcon className="size-4 transition-transform in-aria-expanded:rotate-180" />
+                                            </CollapsibleTrigger>
                                         </div>
                                         <CollapsibleContent className="bg-muted/40 px-3 py-2">
                                             <CommitList
@@ -374,7 +397,7 @@ function AbsenceTime({
                         <span className="self-center">
                             <Button
                                 type="button"
-                                size="icon-sm"
+                                size="icon-xs"
                                 variant="ghost"
                                 aria-label={`Edit ${absence.label}`}
                                 onClick={() => setEditing(true)}
@@ -489,25 +512,56 @@ function ConstantTime({
     );
 }
 
-function LoggedTime({ day }: { day: TimesheetDay }) {
+function LoggedTime({
+    day,
+    projects,
+    canLog,
+}: {
+    day: TimesheetDay;
+    projects: TeamworkProject[];
+    canLog: boolean;
+}) {
     const fullDay = day.loggedMinutes >= 8 * 60;
     const hasTime = day.loggedMinutes > 0;
+    const warned =
+        day.loggedMinutes > 8 * 60 ||
+        day.logged.some((entry) => overlapsLunch(entry));
+    const [logging, setLogging] = useState(false);
 
     return (
         <Collapsible
-            defaultOpen={!hasTime}
+            defaultOpen={!fullDay || warned}
             className="overflow-hidden bg-muted/50 ring-1 ring-foreground/10"
         >
-            <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-sm font-medium">
-                <TeamworkLogo variant="transparent" />
-                <span className="text-tw-slate">Teamwork</span>
-                {!fullDay && hasTime && (
-                    <span className="tabular-nums text-muted-foreground">
-                        {formatDuration(day.loggedMinutes)}
-                    </span>
+            <div className="flex items-center gap-2 px-3 py-2">
+                <CollapsibleTrigger className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-sm font-medium">
+                    <TeamworkLogo variant="transparent" />
+                    <span className="text-tw-slate">Teamwork</span>
+                    {!fullDay && hasTime && (
+                        <span className="tabular-nums text-muted-foreground">
+                            {formatDuration(day.loggedMinutes)}
+                        </span>
+                    )}
+                </CollapsibleTrigger>
+                {canLog && (
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        aria-label={`Log time on ${day.label}`}
+                        onClick={() => setLogging(true)}
+                    >
+                        <ClockIcon data-icon="inline-start" />
+                        Log
+                    </Button>
                 )}
-                <ChevronDownIcon className="ml-auto size-4 transition-transform in-aria-expanded:rotate-180" />
-            </CollapsibleTrigger>
+                <CollapsibleTrigger
+                    aria-label={`Toggle Teamwork on ${day.label}`}
+                    className="shrink-0 cursor-pointer"
+                >
+                    <ChevronDownIcon className="size-4 transition-transform in-aria-expanded:rotate-180" />
+                </CollapsibleTrigger>
+            </div>
             <CollapsibleContent>
                 {day.logged.length > 0 ? (
                     <ul className="flex flex-col divide-y border-t bg-card">
@@ -565,6 +619,22 @@ function LoggedTime({ day }: { day: TimesheetDay }) {
                     </p>
                 )}
             </CollapsibleContent>
+            {canLog && (
+                <LogTimeDialog
+                    open={logging}
+                    onOpenChange={setLogging}
+                    projectId={null}
+                    projects={projects}
+                    projectName=""
+                    rowKey={`day-${day.date}`}
+                    date={day.date}
+                    dateLabel={day.label}
+                    start={null}
+                    end={null}
+                    minutes={0}
+                    logged={day.logged}
+                />
+            )}
         </Collapsible>
     );
 }
@@ -628,7 +698,7 @@ function EditLoggedTime({
         <span className="self-center">
             <Button
                 type="button"
-                size="icon-sm"
+                size="icon-xs"
                 variant="ghost"
                 aria-label={`Edit ${entry.task || entry.project}`}
                 onClick={() => setOpen(true)}
@@ -751,7 +821,7 @@ function TeamworkLink({
     }
 
     return (
-        <div className="flex shrink-0 items-center gap-2 pr-2">
+        <div className="flex shrink-0 items-center gap-2">
             <Button
                 type="button"
                 size="sm"
@@ -792,6 +862,10 @@ function LinkProject({
 }) {
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState("");
+    const [selected, setSelected] = useState<string | null>(null);
+    const [saving, setSaving] = useState(false);
+    const [tasks, setTasks] = useState<ProjectTask[] | null>(null);
+    const [tasksError, setTasksError] = useState<string | null>(null);
     const options = useMemo(
         () =>
             projects.map((project) => ({
@@ -804,28 +878,86 @@ function LinkProject({
     const visible = options.filter((option) =>
         needle === "" ? true : option.label.toLowerCase().includes(needle),
     );
+    const selectedProject =
+        options.find((option) => option.value === selected) ?? null;
+
+    useEffect(() => {
+        if (!open || selected === null) {
+            return;
+        }
+
+        setTasks(null);
+        setTasksError(null);
+
+        const controller = new AbortController();
+
+        fetch(`/teamwork/projects/${selected}/tasks`, {
+            headers: { Accept: "application/json" },
+            signal: controller.signal,
+        })
+            .then(async (response) => {
+                const body = (await response.json()) as {
+                    tasks?: ProjectTask[];
+                    message?: string;
+                };
+
+                if (!response.ok || !Array.isArray(body.tasks)) {
+                    throw new Error(
+                        body.message ?? "Teamwork tasks could not be loaded.",
+                    );
+                }
+
+                setTasks(body.tasks);
+            })
+            .catch((error: unknown) => {
+                if (
+                    error instanceof DOMException &&
+                    error.name === "AbortError"
+                ) {
+                    return;
+                }
+
+                setTasksError("Teamwork tasks could not be loaded.");
+            });
+
+        return () => controller.abort();
+    }, [open, selected]);
 
     if (!canLink || repositoryId === null) {
         return (
-            <span className="shrink-0 pr-3 text-sm text-muted-foreground">
+            <span className="shrink-0 text-sm text-muted-foreground">
                 Not linked
             </span>
         );
     }
 
-    function link(projectId: string) {
+    function close() {
+        setOpen(false);
+        setQuery("");
+        setSelected(null);
+        setTasks(null);
+        setTasksError(null);
+    }
+
+    function save() {
+        if (selected === null || saving) {
+            return;
+        }
+
+        setSaving(true);
         router.patch(
             `/repositories/${repositoryId}`,
-            { teamwork_project_id: Number(projectId) },
+            { teamwork_project_id: Number(selected) },
             {
                 preserveScroll: true,
-                onSuccess: () => setOpen(false),
+                onSuccess: () => close(),
+                onFinish: () => setSaving(false),
             },
         );
     }
 
     return (
-        <div className="shrink-0 pr-2">
+        <div className="shrink-0">
             <Button
                 type="button"
                 size="sm"
@@ -839,10 +971,27 @@ function LinkProject({
                 <TeamworkLogo data-icon="inline-start" />
                 Link
             </Button>
-            <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent className="sm:max-w-sm">
+            <Dialog
+                open={open}
+                onOpenChange={(next) => {
+                    if (next) {
+                        setOpen(true);
+                        return;
+                    }
+
+                    close();
+                }}
+            >
+                <DialogContent className="max-h-[calc(100%-2rem)] overflow-y-auto sm:max-w-lg">
                     <DialogHeader>
-                        <DialogTitle>Link {repositoryName}</DialogTitle>
+                        <DialogTitle className="flex items-center gap-2">
+                            <TeamworkLogo variant="slate" />
+                            Link{" "}
+                            <Badge variant="secondary">
+                                <GitCommitHorizontalIcon className="size-4" />
+                                {repositoryName}
+                            </Badge>
+                        </DialogTitle>
                         <DialogDescription>
                             Choose the Teamwork project for this repository.
                         </DialogDescription>
@@ -851,7 +1000,7 @@ function LinkProject({
                         <FieldLabel htmlFor={`link-project-${repositoryId}`}>
                             Teamwork project
                         </FieldLabel>
-                        <InputGroup>
+                        <InputGroup className="!rounded-b-none border-b-0 -mb-2">
                             <InputGroupAddon>
                                 <SearchIcon />
                             </InputGroupAddon>
@@ -864,7 +1013,7 @@ function LinkProject({
                                 }
                             />
                         </InputGroup>
-                        <ScrollArea className="h-48 rounded-lg border">
+                        <ScrollArea className="h-48 rounded-b-lg border">
                             {visible.length === 0 && (
                                 <p className="px-3 py-2 text-muted-foreground">
                                     No projects match.
@@ -875,22 +1024,111 @@ function LinkProject({
                                     <Button
                                         key={option.value}
                                         type="button"
-                                        variant="ghost"
+                                        variant={
+                                            selected === option.value
+                                                ? "secondary"
+                                                : "ghost"
+                                        }
                                         className="h-auto w-full justify-start px-2 py-1.5"
-                                        onClick={() => link(option.value)}
+                                        aria-pressed={selected === option.value}
+                                        onClick={() =>
+                                            setSelected(option.value)
+                                        }
                                     >
                                         <span className="truncate">
                                             {option.label}
                                         </span>
+                                        {selected === option.value && (
+                                            <CheckIcon className="ml-auto" />
+                                        )}
                                     </Button>
                                 ))}
                             </div>
                         </ScrollArea>
+                        {selectedProject !== null && (
+                            <Alert>
+                                <CheckIcon />
+                                <AlertTitle>Selected</AlertTitle>
+                                <AlertDescription>
+                                    {selectedProject.label}
+                                </AlertDescription>
+                            </Alert>
+                        )}
                     </Field>
+                    {selectedProject !== null && (
+                        <Field>
+                            <FieldLabel className="items-center">
+                                <ListTodoIcon className="size-3.5" />
+                                Tasks
+                            </FieldLabel>
+                            <ScrollArea className="h-40 rounded-lg border">
+                                {tasks === null && tasksError === null && (
+                                    <p className="flex items-center gap-2 px-3 py-2 text-muted-foreground">
+                                        <Spinner />
+                                        Loading tasks
+                                    </p>
+                                )}
+                                {tasksError !== null && (
+                                    <p className="px-3 py-2 text-muted-foreground">
+                                        {tasksError}
+                                    </p>
+                                )}
+                                {tasks !== null && tasks.length === 0 && (
+                                    <p className="px-3 py-2 text-muted-foreground">
+                                        This project has no tasks.
+                                    </p>
+                                )}
+                                <ul className="flex flex-col p-1">
+                                    {(tasks ?? []).map((task) => (
+                                        <li
+                                            key={task.id}
+                                            className="flex items-start gap-2 px-2 py-1.5"
+                                        >
+                                            <ListTodoIcon className="mt-0.5 size-3.5 shrink-0" />
+                                            <span className="min-w-0">
+                                                <span className="block truncate">
+                                                    {taskPath(task)}
+                                                </span>
+                                                {task.tasklist !== "" && (
+                                                    <span className="block truncate text-muted-foreground">
+                                                        {task.tasklist}
+                                                    </span>
+                                                )}
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </ScrollArea>
+                        </Field>
+                    )}
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={close}>
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            disabled={selected === null || saving}
+                            onClick={save}
+                        >
+                            {saving && <Spinner data-icon="inline-start" />}
+                            Save
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>
     );
+}
+
+type ProjectTask = {
+    id: number;
+    name: string;
+    tasklist: string;
+    ancestors: string[];
+};
+
+function taskPath(task: ProjectTask): string {
+    return [...task.ancestors, task.name].join(" / ");
 }
 
 function absenceSpan(part: AbsencePart): {
@@ -930,7 +1168,7 @@ function overlapMessage(
     start: number | null,
     end: number | null,
 ): string | null {
-    if (absence === null) {
+    if (absence == null) {
         return null;
     }
 
@@ -961,7 +1199,7 @@ function absenceCovers(
     absence: TimesheetDay["absence"],
     constant: ConstantTask,
 ): boolean {
-    if (absence === null) {
+    if (absence == null) {
         return false;
     }
 
@@ -1040,6 +1278,20 @@ function clockFromMinutes(total: number): string {
     const rest = minutes % 60;
 
     return `${String(hours).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
+}
+
+function overlapsLunch(entry: TimesheetLog): boolean {
+    if (entry.time === null) {
+        return false;
+    }
+
+    const start = minutesFromClock(entry.time);
+
+    if (start === null) {
+        return false;
+    }
+
+    return start < 14 * 60 && 13 * 60 < start + entry.minutes;
 }
 
 function minutesFromClock(clock: string): number | null {
@@ -1128,7 +1380,7 @@ function CommitList({
                         {commit.subject}
                     </span>
                     {showBranch && commit.branch !== "" && (
-                        <span className="flex max-w-40 items-center gap-1 text-muted-foreground">
+                        <span className="flex max-w-40 items-center gap-1 text-muted-foreground/60 text-xs">
                             <GitBranchIcon className="size-3.5 shrink-0" />
                             <span className="truncate">{commit.branch}</span>
                         </span>

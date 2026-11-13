@@ -396,6 +396,12 @@ class ShowTimesheet
             $cursor = $cursor->addDay();
         }
 
+        foreach ($byDate as $date => $day) {
+            if (! array_key_exists('absence', $day)) {
+                $byDate[$date]['absence'] = null;
+            }
+        }
+
         krsort($byDate);
 
         return array_values($byDate);
