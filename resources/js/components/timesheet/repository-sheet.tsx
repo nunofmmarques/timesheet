@@ -10,6 +10,7 @@ import {
     sheetNavCountClass,
     sheetNavTriggerClass,
 } from '@/components/timesheet/sheet-nav';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import {
@@ -17,6 +18,7 @@ import {
     InputGroupAddon,
     InputGroupInput,
 } from '@/components/ui/input-group';
+import { Separator } from '@/components/ui/separator';
 import {
     Sheet,
     SheetContent,
@@ -54,6 +56,8 @@ export function RepositorySheet({
             (mark?.label.toLowerCase().includes(needle) ?? false)
         );
     });
+    const active = visible.filter((repository) => repository.enabled);
+    const inactive = visible.filter((repository) => !repository.enabled);
 
     function scan() {
         router.post(
@@ -151,69 +155,108 @@ export function RepositorySheet({
                         </InputGroup>
                     </Field>
                 </div>
-                <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 pb-4">
+                <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 pb-4">
                     {visible.length === 0 && (
                         <p className="text-sm text-muted-foreground">
                             No repositories match.
                         </p>
                     )}
-                    {visible.map((repository) => (
-                        <div
-                            key={repository.id}
-                            className="flex items-center gap-3 rounded-lg border px-3 py-2"
-                        >
-                            <Switch
-                                checked={repository.enabled}
-                                onCheckedChange={(checked) => {
-                                    router.patch(
+                    <RepositoryGroup
+                        title="Active"
+                        repositories={active}
+                        discoverRoots={discoverRoots}
+                    />
+                    {active.length > 0 && inactive.length > 0 && (
+                        <Separator className="my-1" />
+                    )}
+                    <RepositoryGroup
+                        title="Inactive"
+                        repositories={inactive}
+                        discoverRoots={discoverRoots}
+                    />
+                </div>
+            </SheetContent>
+        </Sheet>
+    );
+}
+
+function RepositoryGroup({
+    title,
+    repositories,
+    discoverRoots,
+}: {
+    title: string;
+    repositories: RepositoryRecord[];
+    discoverRoots: string[];
+}) {
+    if (repositories.length === 0) {
+        return null;
+    }
+
+    return (
+        <section className="flex flex-col gap-2">
+            <h3 className="flex items-center gap-2 px-1 text-xs font-medium text-muted-foreground">
+                {title}
+                <Badge variant="secondary" className="tabular-nums">
+                    {repositories.length}
+                </Badge>
+            </h3>
+            <div className="flex flex-col gap-2">
+                {repositories.map((repository) => (
+                    <div
+                        key={repository.id}
+                        className="flex items-center gap-3 rounded-lg border px-3 py-2"
+                    >
+                        <Switch
+                            checked={repository.enabled}
+                            onCheckedChange={(checked) => {
+                                router.patch(
+                                    `/repositories/${repository.id}`,
+                                    { enabled: checked === true },
+                                    {
+                                        preserveScroll: true,
+                                        preserveState: true,
+                                    },
+                                );
+                            }}
+                            aria-label={`Include ${repository.name}`}
+                        />
+                        <div className="min-w-0 flex-1">
+                            <div className="truncate font-medium">
+                                {repository.name}
+                            </div>
+                            <div className="flex flex-col gap-0.5">
+                                <FolderMark
+                                    path={repository.path}
+                                    roots={discoverRoots}
+                                />
+                                {repository.teamworkProjectName !== null && (
+                                    <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                                        <FolderKanbanIcon className="size-3.5 shrink-0" />
+                                        <span className="truncate">
+                                            {repository.teamworkProjectName}
+                                        </span>
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                        <SheetItemActions>
+                            <ConfirmDeleteButton
+                                label={`Remove ${repository.name}`}
+                                onConfirm={() =>
+                                    router.delete(
                                         `/repositories/${repository.id}`,
-                                        { enabled: checked === true },
                                         {
                                             preserveScroll: true,
                                             preserveState: true,
                                         },
-                                    );
-                                }}
-                                aria-label={`Include ${repository.name}`}
+                                    )
+                                }
                             />
-                            <div className="min-w-0 flex-1">
-                                <div className="truncate font-medium">
-                                    {repository.name}
-                                </div>
-                                <div className="flex flex-col gap-0.5">
-                                    <FolderMark
-                                        path={repository.path}
-                                        roots={discoverRoots}
-                                    />
-                                    {repository.teamworkProjectName !==
-                                        null && (
-                                        <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
-                                            <FolderKanbanIcon className="size-3.5 shrink-0" />
-                                            <span className="truncate">
-                                                {repository.teamworkProjectName}
-                                            </span>
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                            <SheetItemActions>
-                                <ConfirmDeleteButton
-                                    label={`Remove ${repository.name}`}
-                                    onConfirm={() =>
-                                        router.delete(
-                                            `/repositories/${repository.id}`,
-                                            {
-                                                preserveScroll: true,
-                                                preserveState: true,
-                                            },
-                                        )
-                                    }
-                                />
-                            </SheetItemActions>
-                        </div>
-                    ))}
-                </div>
-            </SheetContent>
-        </Sheet>
+                        </SheetItemActions>
+                    </div>
+                ))}
+            </div>
+        </section>
     );
 }

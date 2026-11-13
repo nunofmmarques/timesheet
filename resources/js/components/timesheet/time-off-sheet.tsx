@@ -11,6 +11,7 @@ import {
 import { sheetNavTriggerClass } from '@/components/timesheet/sheet-nav';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
+import { DialogFooter } from '@/components/ui/dialog';
 import {
     Field,
     FieldError,
@@ -34,6 +35,7 @@ import {
     Sheet,
     SheetContent,
     SheetDescription,
+    SheetFooter,
     SheetHeader,
     SheetTitle,
     SheetTrigger,
@@ -58,6 +60,7 @@ const PARTS: { value: AbsencePart; label: string }[] = [
 ];
 
 export function TimeOffSheet({ absences }: { absences: TimeOff[] }) {
+    const [open, setOpen] = useState(false);
     const [adding, setAdding] = useState(false);
     const [editing, setEditing] = useState<TimeOff | null>(null);
     const formOpen = adding || editing !== null;
@@ -67,22 +70,41 @@ export function TimeOffSheet({ absences }: { absences: TimeOff[] }) {
         setEditing(null);
     }
 
+    function openAdd() {
+        setEditing(null);
+        setAdding(true);
+    }
+
+    function openEdit(absence: TimeOff) {
+        setAdding(false);
+        setEditing(absence);
+    }
+
     return (
-        <Sheet>
+        <Sheet
+            open={open}
+            onOpenChange={(next) => {
+                setOpen(next);
+
+                if (!next) {
+                    closeForm();
+                }
+            }}
+        >
             <SheetTrigger className={sheetNavTriggerClass}>
                 <TreePalmIcon />
                 Time off
             </SheetTrigger>
-            <SheetContent className="data-[side=right]:sm:max-w-md">
-                <SheetHeader className="pb-0">
+            <SheetContent className="gap-0 data-[side=right]:sm:max-w-md">
+                <SheetHeader>
                     <SheetTitle>Time off</SheetTitle>
                     <SheetDescription>
                         Vacation, paid leave, and other days away. They show on
                         the chart.
                     </SheetDescription>
                 </SheetHeader>
-                <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4">
-                    {absences.length > 0 && (
+                <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
+                    {absences.length > 0 ? (
                         <ul className="flex flex-col divide-y rounded-lg border">
                             {absences.map((absence) => (
                                 <li
@@ -115,10 +137,7 @@ export function TimeOffSheet({ absences }: { absences: TimeOff[] }) {
                                     <SheetItemActions>
                                         <SheetEditButton
                                             label={`Edit ${absence.label}`}
-                                            onClick={() => {
-                                                setAdding(false);
-                                                setEditing(absence);
-                                            }}
+                                            onClick={() => openEdit(absence)}
                                         />
                                         <ConfirmDeleteButton
                                             label={`Remove ${absence.label}`}
@@ -133,30 +152,39 @@ export function TimeOffSheet({ absences }: { absences: TimeOff[] }) {
                                 </li>
                             ))}
                         </ul>
-                    )}
-                    {formOpen ? (
-                        <div className="motion-enter-form">
-                            <TimeOffForm
-                                key={editing?.id ?? 'new'}
-                                absence={editing}
-                                onDone={closeForm}
-                            />
-                        </div>
                     ) : (
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => {
-                                setEditing(null);
-                                setAdding(true);
-                            }}
-                        >
-                            <PlusIcon data-icon="inline-start" />
-                            Add time off
-                        </Button>
+                        <p className="text-sm text-muted-foreground">
+                            No time off saved yet.
+                        </p>
                     )}
                 </div>
+                <SheetFooter>
+                    <Button type="button" onClick={openAdd}>
+                        <PlusIcon data-icon="inline-start" />
+                        Add time off
+                    </Button>
+                </SheetFooter>
             </SheetContent>
+            <Sheet
+                open={formOpen}
+                onOpenChange={(next) => {
+                    if (!next) {
+                        closeForm();
+                    }
+                }}
+            >
+                <SheetContent
+                    nested
+                    className="gap-0 data-[side=right]:sm:max-w-md"
+                >
+                    <TimeOffForm
+                        key={editing?.id ?? 'new'}
+                        absence={editing}
+                        variant="sheet"
+                        onDone={closeForm}
+                    />
+                </SheetContent>
+            </Sheet>
         </Sheet>
     );
 }
@@ -164,10 +192,12 @@ export function TimeOffSheet({ absences }: { absences: TimeOff[] }) {
 export function TimeOffForm({
     absence,
     initialDate,
+    variant = 'dialog',
     onDone,
 }: {
     absence: TimeOff | null;
     initialDate?: string;
+    variant?: 'dialog' | 'sheet';
     onDone: () => void;
 }) {
     const today = initialDate ?? todayInLisbon();
@@ -179,10 +209,15 @@ export function TimeOffForm({
         note: absence?.note ?? '',
     });
     const dateError = form.errors.starts_on ?? form.errors.ends_on;
+    const Footer = variant === 'sheet' ? SheetFooter : DialogFooter;
 
     return (
         <form
-            className="flex flex-col gap-4"
+            className={
+                variant === 'sheet'
+                    ? 'flex min-h-0 flex-1 flex-col'
+                    : 'flex flex-col gap-4'
+            }
             onSubmit={(event) => {
                 event.preventDefault();
                 const options = {
@@ -197,202 +232,239 @@ export function TimeOffForm({
                 }
             }}
         >
-            <FieldGroup>
-                <Field>
-                    <FieldLabel>Type</FieldLabel>
-                    <Select
-                        value={form.data.kind}
-                        onValueChange={(value) => {
-                            if (typeof value === 'string') {
-                                form.setData('kind', value);
-                            }
-                        }}
-                    >
-                        <SelectTrigger className="w-full">
-                            <SelectValue>
-                                {(value: string | null) => {
-                                    const kind = KINDS.find(
-                                        (item) => item.value === value,
-                                    );
-
-                                    if (kind === undefined) {
-                                        return 'Type';
-                                    }
-
-                                    return (
-                                        <span className="flex items-center gap-2">
-                                            <AbsenceIcon
-                                                kind={kind.value}
-                                                className="size-4 text-tw-purple"
-                                            />
-                                            {kind.label}
-                                        </span>
-                                    );
-                                }}
-                            </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent className="z-[60]">
-                            {KINDS.map((kind) => (
-                                <SelectItem key={kind.value} value={kind.value}>
-                                    <AbsenceIcon
-                                        kind={kind.value}
-                                        className="size-4 text-tw-purple"
-                                    />
-                                    {kind.label}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <FieldError
-                        errors={
-                            form.errors.kind
-                                ? [{ message: form.errors.kind }]
-                                : undefined
-                        }
-                    />
-                </Field>
-                <Field>
-                    <FieldLabel>Day</FieldLabel>
-                    <ToggleGroup
-                        variant="outline"
-                        size="sm"
-                        spacing={0}
-                        className="w-full"
-                        value={[form.data.part]}
-                        onValueChange={(value) => {
-                            const next = value.at(-1);
-
-                            if (
-                                next !== 'day' &&
-                                next !== 'morning' &&
-                                next !== 'afternoon'
-                            ) {
-                                return;
-                            }
-
-                            form.setData({
-                                ...form.data,
-                                part: next,
-                                ends_on:
-                                    next === 'day'
-                                        ? form.data.ends_on
-                                        : form.data.starts_on,
-                            });
-                        }}
-                    >
-                        {PARTS.map((part) => (
-                            <ToggleGroupItem
-                                key={part.value}
-                                value={part.value}
-                                className="flex-1"
-                            >
-                                {part.label}
-                            </ToggleGroupItem>
-                        ))}
-                    </ToggleGroup>
-                </Field>
-                <Field data-invalid={dateError ? true : undefined}>
-                    <FieldLabel>Dates</FieldLabel>
-                    <Popover>
-                        <PopoverTrigger
-                            render={
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="w-full justify-start font-normal"
-                                    aria-invalid={dateError ? true : undefined}
-                                />
-                            }
+            {variant === 'sheet' && (
+                <SheetHeader>
+                    <SheetTitle>
+                        {absence === null ? 'Add time off' : 'Edit time off'}
+                    </SheetTitle>
+                    <SheetDescription>
+                        {absence === null
+                            ? 'Choose the type, dates, and day part.'
+                            : 'Update this time off record.'}
+                    </SheetDescription>
+                </SheetHeader>
+            )}
+            <div
+                className={
+                    variant === 'sheet'
+                        ? 'flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4'
+                        : undefined
+                }
+            >
+                <FieldGroup>
+                    <Field>
+                        <FieldLabel>Type</FieldLabel>
+                        <Select
+                            value={form.data.kind}
+                            onValueChange={(value) => {
+                                if (typeof value === 'string') {
+                                    form.setData('kind', value);
+                                }
+                            }}
                         >
-                            <CalendarIcon data-icon="inline-start" />
-                            {formatRange(
-                                form.data.starts_on,
-                                form.data.ends_on,
-                            )}
-                        </PopoverTrigger>
-                        <PopoverContent align="start" className="w-auto p-0">
-                            {form.data.part === 'day' ? (
-                                <Calendar
-                                    mode="range"
-                                    weekStartsOn={1}
-                                    numberOfMonths={1}
-                                    defaultMonth={parseIso(form.data.starts_on)}
-                                    selected={{
-                                        from: parseIso(form.data.starts_on),
-                                        to: parseIso(form.data.ends_on),
-                                    }}
-                                    onSelect={(range: DateRange | undefined) => {
-                                        if (!range?.from) {
-                                            return;
+                            <SelectTrigger className="w-full">
+                                <SelectValue>
+                                    {(value: string | null) => {
+                                        const kind = KINDS.find(
+                                            (item) => item.value === value,
+                                        );
+
+                                        if (kind === undefined) {
+                                            return 'Type';
                                         }
 
-                                        form.setData({
-                                            ...form.data,
-                                            starts_on: toIso(range.from),
-                                            ends_on: toIso(
-                                                range.to ?? range.from,
-                                            ),
-                                        });
+                                        return (
+                                            <span className="flex items-center gap-2">
+                                                <AbsenceIcon
+                                                    kind={kind.value}
+                                                    className="size-4 text-tw-purple"
+                                                />
+                                                {kind.label}
+                                            </span>
+                                        );
                                     }}
-                                />
-                            ) : (
-                                <Calendar
-                                    mode="single"
-                                    weekStartsOn={1}
-                                    defaultMonth={parseIso(form.data.starts_on)}
-                                    selected={parseIso(form.data.starts_on)}
-                                    onSelect={(date: Date | undefined) => {
-                                        if (date === undefined) {
-                                            return;
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent className="z-[70]">
+                                {KINDS.map((kind) => (
+                                    <SelectItem
+                                        key={kind.value}
+                                        value={kind.value}
+                                    >
+                                        <AbsenceIcon
+                                            kind={kind.value}
+                                            className="size-4 text-tw-purple"
+                                        />
+                                        {kind.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <FieldError
+                            errors={
+                                form.errors.kind
+                                    ? [{ message: form.errors.kind }]
+                                    : undefined
+                            }
+                        />
+                    </Field>
+                    <Field>
+                        <FieldLabel>Day</FieldLabel>
+                        <ToggleGroup
+                            variant="outline"
+                            size="sm"
+                            spacing={0}
+                            className="w-full"
+                            value={[form.data.part]}
+                            onValueChange={(value) => {
+                                const next = value.at(-1);
+
+                                if (
+                                    next !== 'day' &&
+                                    next !== 'morning' &&
+                                    next !== 'afternoon'
+                                ) {
+                                    return;
+                                }
+
+                                form.setData({
+                                    ...form.data,
+                                    part: next,
+                                    ends_on:
+                                        next === 'day'
+                                            ? form.data.ends_on
+                                            : form.data.starts_on,
+                                });
+                            }}
+                        >
+                            {PARTS.map((part) => (
+                                <ToggleGroupItem
+                                    key={part.value}
+                                    value={part.value}
+                                    className="flex-1"
+                                >
+                                    {part.label}
+                                </ToggleGroupItem>
+                            ))}
+                        </ToggleGroup>
+                    </Field>
+                    <Field data-invalid={dateError ? true : undefined}>
+                        <FieldLabel>Dates</FieldLabel>
+                        <Popover>
+                            <PopoverTrigger
+                                render={
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="w-full justify-start font-normal"
+                                        aria-invalid={
+                                            dateError ? true : undefined
                                         }
+                                    />
+                                }
+                            >
+                                <CalendarIcon data-icon="inline-start" />
+                                {formatRange(
+                                    form.data.starts_on,
+                                    form.data.ends_on,
+                                )}
+                            </PopoverTrigger>
+                            <PopoverContent
+                                align="start"
+                                className="z-[70] w-auto p-0"
+                            >
+                                {form.data.part === 'day' ? (
+                                    <Calendar
+                                        mode="range"
+                                        weekStartsOn={1}
+                                        numberOfMonths={1}
+                                        defaultMonth={parseIso(
+                                            form.data.starts_on,
+                                        )}
+                                        selected={{
+                                            from: parseIso(form.data.starts_on),
+                                            to: parseIso(form.data.ends_on),
+                                        }}
+                                        onSelect={(
+                                            range: DateRange | undefined,
+                                        ) => {
+                                            if (!range?.from) {
+                                                return;
+                                            }
 
-                                        const iso = toIso(date);
+                                            form.setData({
+                                                ...form.data,
+                                                starts_on: toIso(range.from),
+                                                ends_on: toIso(
+                                                    range.to ?? range.from,
+                                                ),
+                                            });
+                                        }}
+                                    />
+                                ) : (
+                                    <Calendar
+                                        mode="single"
+                                        weekStartsOn={1}
+                                        defaultMonth={parseIso(
+                                            form.data.starts_on,
+                                        )}
+                                        selected={parseIso(form.data.starts_on)}
+                                        onSelect={(date: Date | undefined) => {
+                                            if (date === undefined) {
+                                                return;
+                                            }
 
-                                        form.setData({
-                                            ...form.data,
-                                            starts_on: iso,
-                                            ends_on: iso,
-                                        });
-                                    }}
-                                />
-                            )}
-                        </PopoverContent>
-                    </Popover>
-                    <FieldError
-                        errors={
-                            dateError ? [{ message: dateError }] : undefined
-                        }
-                    />
-                </Field>
-                <Field>
-                    <FieldLabel htmlFor="time-off-note">
-                        {form.data.kind === 'other' ? 'Name' : 'Note'}
-                    </FieldLabel>
-                    <Input
-                        id="time-off-note"
-                        value={form.data.note}
-                        placeholder={
-                            form.data.kind === 'other'
-                                ? 'What kind of leave'
-                                : 'Optional'
-                        }
-                        onChange={(event) =>
-                            form.setData('note', event.target.value)
-                        }
-                    />
-                    <FieldError
-                        errors={
-                            form.errors.note
-                                ? [{ message: form.errors.note }]
-                                : undefined
-                        }
-                    />
-                </Field>
-            </FieldGroup>
-            <div className="flex items-center gap-2">
+                                            const iso = toIso(date);
+
+                                            form.setData({
+                                                ...form.data,
+                                                starts_on: iso,
+                                                ends_on: iso,
+                                            });
+                                        }}
+                                    />
+                                )}
+                            </PopoverContent>
+                        </Popover>
+                        <FieldError
+                            errors={
+                                dateError
+                                    ? [{ message: dateError }]
+                                    : undefined
+                            }
+                        />
+                    </Field>
+                    <Field>
+                        <FieldLabel htmlFor="time-off-note">
+                            {form.data.kind === 'other' ? 'Name' : 'Note'}
+                        </FieldLabel>
+                        <Input
+                            id="time-off-note"
+                            value={form.data.note}
+                            placeholder={
+                                form.data.kind === 'other'
+                                    ? 'What kind of leave'
+                                    : 'Optional'
+                            }
+                            onChange={(event) =>
+                                form.setData('note', event.target.value)
+                            }
+                        />
+                        <FieldError
+                            errors={
+                                form.errors.note
+                                    ? [{ message: form.errors.note }]
+                                    : undefined
+                            }
+                        />
+                    </Field>
+                </FieldGroup>
+            </div>
+            <Footer>
                 {absence !== null && (
                     <ConfirmDeleteButton
                         labeled
+                        className="sm:mr-auto"
                         label={`Remove ${absence.label}`}
                         disabled={form.processing}
                         onConfirm={() =>
@@ -405,8 +477,8 @@ export function TimeOffForm({
                 )}
                 <Button
                     type="button"
-                    variant="ghost"
-                    className="ml-auto"
+                    variant={variant === 'sheet' ? 'outline' : 'ghost'}
+                    disabled={form.processing}
                     onClick={onDone}
                 >
                     Cancel
@@ -415,7 +487,7 @@ export function TimeOffForm({
                     {form.processing && <Spinner data-icon="inline-start" />}
                     {absence === null ? 'Save' : 'Save changes'}
                 </Button>
-            </div>
+            </Footer>
         </form>
     );
 }

@@ -342,7 +342,6 @@ function ProjectPicker({
                 <ComboboxList>
                     {(option: ProjectOption) => (
                         <ComboboxItem key={option.value} value={option}>
-                            <FolderKanbanIcon />
                             <span className="truncate">{option.label}</span>
                         </ComboboxItem>
                     )}

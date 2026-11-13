@@ -32,6 +32,7 @@ import {
     Sheet,
     SheetContent,
     SheetDescription,
+    SheetFooter,
     SheetHeader,
     SheetTitle,
     SheetTrigger,
@@ -61,6 +62,16 @@ export function HolidaysSheet({
         setEditing(null);
     }
 
+    function openAdd() {
+        setEditing(null);
+        setAdding(true);
+    }
+
+    function openEdit(holiday: Holiday) {
+        setAdding(false);
+        setEditing(holiday);
+    }
+
     return (
         <Sheet
             open={open}
@@ -70,6 +81,8 @@ export function HolidaysSheet({
                 if (next) {
                     setSelectedYear(year);
                     closeForm();
+                } else {
+                    closeForm();
                 }
             }}
         >
@@ -77,15 +90,15 @@ export function HolidaysSheet({
                 <FlagIcon />
                 Holidays
             </SheetTrigger>
-            <SheetContent className="data-[side=right]:sm:max-w-md">
-                <SheetHeader className="pb-0">
+            <SheetContent className="gap-0 data-[side=right]:sm:max-w-md">
+                <SheetHeader>
                     <SheetTitle>Holidays</SheetTitle>
                     <SheetDescription>
                         Portugal&apos;s national holidays. They show on the
                         chart, and you can add or rename any date.
                     </SheetDescription>
                 </SheetHeader>
-                <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4">
+                <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
                     <Field>
                         <FieldLabel>Year</FieldLabel>
                         <Select
@@ -96,13 +109,12 @@ export function HolidaysSheet({
                                 }
 
                                 setSelectedYear(value);
-                                closeForm();
                             }}
                         >
                             <SelectTrigger className="w-full">
                                 <SelectValue />
                             </SelectTrigger>
-                            <SelectContent className="z-[60]">
+                            <SelectContent className="z-[70]">
                                 {years.map((item) => (
                                     <SelectItem key={item} value={item}>
                                         {item}
@@ -111,7 +123,7 @@ export function HolidaysSheet({
                             </SelectContent>
                         </Select>
                     </Field>
-                    {visible.length > 0 && (
+                    {visible.length > 0 ? (
                         <ul className="flex flex-col divide-y rounded-lg border">
                             {visible.map((holiday) => (
                                 <li
@@ -132,10 +144,7 @@ export function HolidaysSheet({
                                     <SheetItemActions>
                                         <SheetEditButton
                                             label={`Edit ${holiday.name}`}
-                                            onClick={() => {
-                                                setAdding(false);
-                                                setEditing(holiday);
-                                            }}
+                                            onClick={() => openEdit(holiday)}
                                         />
                                         <ConfirmDeleteButton
                                             label={`Remove ${holiday.name}`}
@@ -150,31 +159,39 @@ export function HolidaysSheet({
                                 </li>
                             ))}
                         </ul>
-                    )}
-                    {formOpen ? (
-                        <div className="motion-enter-form">
-                            <HolidayForm
-                                key={editing?.id ?? "new"}
-                                holiday={editing}
-                                year={selectedYear}
-                                onDone={closeForm}
-                            />
-                        </div>
                     ) : (
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => {
-                                setEditing(null);
-                                setAdding(true);
-                            }}
-                        >
-                            <PlusIcon data-icon="inline-start" />
-                            Add holiday
-                        </Button>
+                        <p className="text-sm text-muted-foreground">
+                            No holidays in {selectedYear}.
+                        </p>
                     )}
                 </div>
+                <SheetFooter>
+                    <Button type="button" onClick={openAdd}>
+                        <PlusIcon data-icon="inline-start" />
+                        Add holiday
+                    </Button>
+                </SheetFooter>
             </SheetContent>
+            <Sheet
+                open={formOpen}
+                onOpenChange={(next) => {
+                    if (!next) {
+                        closeForm();
+                    }
+                }}
+            >
+                <SheetContent
+                    nested
+                    className="gap-0 data-[side=right]:sm:max-w-md"
+                >
+                    <HolidayForm
+                        key={editing?.id ?? "new"}
+                        holiday={editing}
+                        year={selectedYear}
+                        onDone={closeForm}
+                    />
+                </SheetContent>
+            </Sheet>
         </Sheet>
     );
 }
@@ -195,7 +212,7 @@ function HolidayForm({
 
     return (
         <form
-            className="flex flex-col gap-4"
+            className="flex min-h-0 flex-1 flex-col"
             onSubmit={(event) => {
                 event.preventDefault();
                 const options = {
@@ -210,71 +227,87 @@ function HolidayForm({
                 }
             }}
         >
-            <FieldGroup>
-                <Field>
-                    <FieldLabel htmlFor="holiday-name">Name</FieldLabel>
-                    <Input
-                        id="holiday-name"
-                        value={form.data.name}
-                        onChange={(event) =>
-                            form.setData("name", event.target.value)
-                        }
-                    />
-                    <FieldError
-                        errors={
-                            form.errors.name
-                                ? [{ message: form.errors.name }]
-                                : undefined
-                        }
-                    />
-                </Field>
-                <Field data-invalid={form.errors.date ? true : undefined}>
-                    <FieldLabel>Date</FieldLabel>
-                    <Popover>
-                        <PopoverTrigger
-                            render={
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="w-full justify-start font-normal"
-                                    aria-invalid={
-                                        form.errors.date ? true : undefined
-                                    }
-                                />
+            <SheetHeader>
+                <SheetTitle>
+                    {holiday === null ? "Add holiday" : "Edit holiday"}
+                </SheetTitle>
+                <SheetDescription>
+                    {holiday === null
+                        ? "Pick a date and name for the holiday."
+                        : "Update the holiday name or date."}
+                </SheetDescription>
+            </SheetHeader>
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
+                <FieldGroup>
+                    <Field>
+                        <FieldLabel htmlFor="holiday-name">Name</FieldLabel>
+                        <Input
+                            id="holiday-name"
+                            value={form.data.name}
+                            onChange={(event) =>
+                                form.setData("name", event.target.value)
                             }
-                        >
-                            <CalendarIcon data-icon="inline-start" />
-                            {formatHolidayDate(form.data.date)}
-                        </PopoverTrigger>
-                        <PopoverContent align="start" className="w-auto p-0">
-                            <Calendar
-                                mode="single"
-                                weekStartsOn={1}
-                                defaultMonth={parseIso(form.data.date)}
-                                selected={parseIso(form.data.date)}
-                                onSelect={(date: Date | undefined) => {
-                                    if (date === undefined) {
-                                        return;
-                                    }
+                        />
+                        <FieldError
+                            errors={
+                                form.errors.name
+                                    ? [{ message: form.errors.name }]
+                                    : undefined
+                            }
+                        />
+                    </Field>
+                    <Field data-invalid={form.errors.date ? true : undefined}>
+                        <FieldLabel>Date</FieldLabel>
+                        <Popover>
+                            <PopoverTrigger
+                                render={
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="w-full justify-start font-normal"
+                                        aria-invalid={
+                                            form.errors.date ? true : undefined
+                                        }
+                                    />
+                                }
+                            >
+                                <CalendarIcon data-icon="inline-start" />
+                                {formatHolidayDate(form.data.date)}
+                            </PopoverTrigger>
+                            <PopoverContent
+                                align="start"
+                                className="z-[70] w-auto p-0"
+                            >
+                                <Calendar
+                                    mode="single"
+                                    weekStartsOn={1}
+                                    defaultMonth={parseIso(form.data.date)}
+                                    selected={parseIso(form.data.date)}
+                                    onSelect={(date: Date | undefined) => {
+                                        if (date === undefined) {
+                                            return;
+                                        }
 
-                                    form.setData("date", toIso(date));
-                                }}
-                            />
-                        </PopoverContent>
-                    </Popover>
-                    <FieldError
-                        errors={
-                            form.errors.date
-                                ? [{ message: form.errors.date }]
-                                : undefined
-                        }
-                    />
-                </Field>
-            </FieldGroup>
-            <div className="flex items-center gap-2">
+                                        form.setData("date", toIso(date));
+                                    }}
+                                />
+                            </PopoverContent>
+                        </Popover>
+                        <FieldError
+                            errors={
+                                form.errors.date
+                                    ? [{ message: form.errors.date }]
+                                    : undefined
+                            }
+                        />
+                    </Field>
+                </FieldGroup>
+            </div>
+            <SheetFooter>
                 {holiday !== null && (
                     <ConfirmDeleteButton
                         labeled
+                        className="sm:mr-auto"
                         label={`Remove ${holiday.name}`}
                         disabled={form.processing}
                         onConfirm={() =>
@@ -287,8 +320,8 @@ function HolidayForm({
                 )}
                 <Button
                     type="button"
-                    variant="ghost"
-                    className="ml-auto"
+                    variant="outline"
+                    disabled={form.processing}
                     onClick={onDone}
                 >
                     Cancel
@@ -297,7 +330,7 @@ function HolidayForm({
                     {form.processing && <Spinner data-icon="inline-start" />}
                     {holiday === null ? "Save" : "Save changes"}
                 </Button>
-            </div>
+            </SheetFooter>
         </form>
     );
 }
