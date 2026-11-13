@@ -146,11 +146,13 @@ export function TimeOffSheet({ absences }: { absences: TimeOff[] }) {
                         </ul>
                     )}
                     {formOpen ? (
-                        <TimeOffForm
-                            key={editing?.id ?? 'new'}
-                            absence={editing}
-                            onDone={closeForm}
-                        />
+                        <div className="motion-enter-form">
+                            <TimeOffForm
+                                key={editing?.id ?? 'new'}
+                                absence={editing}
+                                onDone={closeForm}
+                            />
+                        </div>
                     ) : (
                         <Button
                             type="button"

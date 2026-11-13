@@ -86,7 +86,7 @@ export function TeamworkSheet({
     return (
         <Sheet>
             <SheetTrigger className={sheetNavTriggerClass}>
-                <TeamworkLogo variant="slate" />
+                <TeamworkLogo variant="transparent" className="size-6" />
                 Teamwork
                 <span className={sheetNavCountClass}>
                     {linked}/{repositories.length}

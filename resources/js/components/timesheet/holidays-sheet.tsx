@@ -163,12 +163,14 @@ export function HolidaysSheet({
                         </ul>
                     )}
                     {formOpen ? (
-                        <HolidayForm
-                            key={editing?.id ?? "new"}
-                            holiday={editing}
-                            year={selectedYear}
-                            onDone={closeForm}
-                        />
+                        <div className="motion-enter-form">
+                            <HolidayForm
+                                key={editing?.id ?? "new"}
+                                holiday={editing}
+                                year={selectedYear}
+                                onDone={closeForm}
+                            />
+                        </div>
                     ) : (
                         <Button
                             type="button"

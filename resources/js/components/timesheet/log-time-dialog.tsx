@@ -615,7 +615,10 @@ export function LogTimeDialog({
                             </p>
                         </div>
                         {conflicts.length > 0 && (
-                            <Alert variant="destructive">
+                            <Alert
+                                variant="destructive"
+                                className="motion-enter-alert"
+                            >
                                 <TriangleAlertIcon />
                                 <AlertTitle>Already logged</AlertTitle>
                                 <AlertDescription className="flex flex-col gap-1">

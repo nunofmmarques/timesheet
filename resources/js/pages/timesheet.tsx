@@ -241,15 +241,17 @@ function BackToTop() {
         return () => window.removeEventListener("scroll", onScroll);
     }, []);
 
-    if (!visible) {
-        return null;
-    }
-
     return (
         <Button
             type="button"
             variant="outline"
-            className="fixed right-4 bottom-20 z-40 bg-background shadow-md"
+            aria-hidden={!visible}
+            tabIndex={visible ? 0 : -1}
+            className={
+                visible
+                    ? "fixed right-4 bottom-4 z-40 translate-y-0 bg-background opacity-100 shadow-md transition-[opacity,translate] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:translate-y-0 motion-reduce:transition-opacity"
+                    : "pointer-events-none fixed right-4 bottom-4 z-40 translate-y-2 bg-background opacity-0 shadow-md transition-[opacity,translate] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:translate-y-0 motion-reduce:transition-opacity"
+            }
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
         >
             <ArrowUpIcon data-icon="inline-start" />

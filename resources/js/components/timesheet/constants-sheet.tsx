@@ -168,14 +168,16 @@ export function ConstantsSheet({
                         </ul>
                     )}
                     {formOpen ? (
-                        <ConstantForm
-                            key={editing?.id ?? 'new'}
-                            constant={editing}
-                            projects={projects}
-                            configured={configured}
-                            error={error}
-                            onDone={closeForm}
-                        />
+                        <div className="motion-enter-form">
+                            <ConstantForm
+                                key={editing?.id ?? 'new'}
+                                constant={editing}
+                                projects={projects}
+                                configured={configured}
+                                error={error}
+                                onDone={closeForm}
+                            />
+                        </div>
                     ) : (
                         <Button
                             type="button"
