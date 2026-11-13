@@ -1,14 +1,13 @@
 import { router, useForm } from '@inertiajs/react';
-import {
-    CalendarIcon,
-    PencilIcon,
-    PlusIcon,
-    Trash2Icon,
-    TreePalmIcon,
-} from 'lucide-react';
+import { CalendarIcon, PlusIcon, TreePalmIcon } from 'lucide-react';
 import { useState } from 'react';
 import type { DateRange } from 'react-day-picker';
 import { AbsenceIcon, absencePartLabel } from '@/components/timesheet/absence-kind';
+import {
+    ConfirmDeleteButton,
+    SheetEditButton,
+    SheetItemActions,
+} from '@/components/timesheet/sheet-actions';
 import { sheetNavTriggerClass } from '@/components/timesheet/sheet-nav';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -113,34 +112,24 @@ export function TimeOffSheet({ absences }: { absences: TimeOff[] }) {
                                             </span>
                                         </span>
                                     </span>
-                                    <div className="flex shrink-0 items-center">
-                                        <Button
-                                            type="button"
-                                            size="icon-sm"
-                                            variant="ghost"
-                                            aria-label={`Edit ${absence.label}`}
+                                    <SheetItemActions>
+                                        <SheetEditButton
+                                            label={`Edit ${absence.label}`}
                                             onClick={() => {
                                                 setAdding(false);
                                                 setEditing(absence);
                                             }}
-                                        >
-                                            <PencilIcon />
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            size="icon-sm"
-                                            variant="ghost"
-                                            aria-label={`Remove ${absence.label}`}
-                                            onClick={() =>
+                                        />
+                                        <ConfirmDeleteButton
+                                            label={`Remove ${absence.label}`}
+                                            onConfirm={() =>
                                                 router.delete(
                                                     `/time-off/${absence.id}`,
                                                     { preserveScroll: true },
                                                 )
                                             }
-                                        >
-                                            <Trash2Icon />
-                                        </Button>
-                                    </div>
+                                        />
+                                    </SheetItemActions>
                                 </li>
                             ))}
                         </ul>
@@ -401,30 +390,31 @@ export function TimeOffForm({
                 </Field>
             </FieldGroup>
             <div className="flex items-center gap-2">
-                <Button type="submit" disabled={form.processing}>
-                    {form.processing && <Spinner data-icon="inline-start" />}
-                    {absence === null ? 'Save' : 'Save changes'}
-                </Button>
-                <Button type="button" variant="ghost" onClick={onDone}>
-                    Cancel
-                </Button>
                 {absence !== null && (
-                    <Button
-                        type="button"
-                        variant="destructive"
-                        className="ml-auto"
+                    <ConfirmDeleteButton
+                        labeled
+                        label={`Remove ${absence.label}`}
                         disabled={form.processing}
-                        onClick={() =>
+                        onConfirm={() =>
                             router.delete(`/time-off/${absence.id}`, {
                                 preserveScroll: true,
                                 onSuccess: () => onDone(),
                             })
                         }
-                    >
-                        <Trash2Icon data-icon="inline-start" />
-                        Delete
-                    </Button>
+                    />
                 )}
+                <Button
+                    type="button"
+                    variant="ghost"
+                    className="ml-auto"
+                    onClick={onDone}
+                >
+                    Cancel
+                </Button>
+                <Button type="submit" disabled={form.processing}>
+                    {form.processing && <Spinner data-icon="inline-start" />}
+                    {absence === null ? 'Save' : 'Save changes'}
+                </Button>
             </div>
         </form>
     );

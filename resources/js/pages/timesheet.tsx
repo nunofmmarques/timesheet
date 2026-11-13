@@ -204,21 +204,23 @@ export default function Timesheet({
                     />
                 )}
 
-                <div className="mx-auto w-full max-w-5xl">
-                    <div className="flex flex-col gap-8">
-                        {listedDays.map((day) => (
-                            <DaySection
-                                key={day.date}
-                                day={day}
-                                repositories={repositories}
-                                projects={teamworkProjects}
-                                teamworkConfigured={teamworkConfigured}
-                                teamworkError={teamworkError}
-                                constants={constants}
-                                absences={absences}
-                                holidays={holidays}
-                            />
-                        ))}
+                <div className="bg-muted/20 -mt-6 pt-6 -mx-4 px-6">
+                    <div className="mx-auto w-full max-w-5xl">
+                        <div className="flex flex-col gap-8">
+                            {listedDays.map((day) => (
+                                <DaySection
+                                    key={day.date}
+                                    day={day}
+                                    repositories={repositories}
+                                    projects={teamworkProjects}
+                                    teamworkConfigured={teamworkConfigured}
+                                    teamworkError={teamworkError}
+                                    constants={constants}
+                                    absences={absences}
+                                    holidays={holidays}
+                                />
+                            ))}
+                        </div>
                     </div>
                 </div>
             </main>

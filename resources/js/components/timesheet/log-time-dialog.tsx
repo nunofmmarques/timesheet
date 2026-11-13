@@ -4,11 +4,11 @@ import {
     FolderKanbanIcon,
     ListTodoIcon,
     SearchIcon,
-    Trash2Icon,
     TriangleAlertIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
+import { ConfirmDeleteButton } from "@/components/timesheet/sheet-actions";
 import { TeamworkLogo } from "@/components/timesheet/teamwork-logo";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -94,7 +94,6 @@ export function LogTimeDialog({
     const [tasks, setTasks] = useState<TeamworkTask[] | null>(null);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [query, setQuery] = useState("");
-    const [confirming, setConfirming] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
     const needle = query.trim().toLowerCase();
@@ -288,10 +287,7 @@ export function LogTimeDialog({
         setDeleteError(null);
         router.delete(`/teamwork/time/${editing.id}`, {
             preserveScroll: true,
-            onSuccess: () => {
-                setConfirming(false);
-                onOpenChange(false);
-            },
+            onSuccess: () => onOpenChange(false),
             onError: (errors) => {
                 setDeleteError(
                     errors.task_id ?? "Teamwork could not delete this time.",
@@ -354,7 +350,6 @@ export function LogTimeDialog({
             open={open}
             onOpenChange={(next) => {
                 if (!next) {
-                    setConfirming(false);
                     setDeleteError(null);
                 }
 
@@ -667,29 +662,18 @@ export function LogTimeDialog({
                     )}
                     <DialogFooter>
                         {editing && (
-                            <Button
-                                type="button"
-                                variant="destructive"
+                            <ConfirmDeleteButton
+                                key={open ? `delete-${editing.id}` : "closed"}
+                                labeled
                                 className="sm:mr-auto"
-                                disabled={form.processing || deleting}
-                                onClick={() => {
-                                    if (!confirming) {
-                                        setDeleteError(null);
-                                        setConfirming(true);
-
-                                        return;
-                                    }
-
+                                label={`Delete ${editing.taskName || "time"}`}
+                                disabled={form.processing}
+                                busy={deleting}
+                                onConfirm={() => {
+                                    setDeleteError(null);
                                     destroy();
                                 }}
-                            >
-                                {deleting ? (
-                                    <Spinner data-icon="inline-start" />
-                                ) : (
-                                    <Trash2Icon data-icon="inline-start" />
-                                )}
-                                {confirming ? "Confirm delete" : "Delete"}
-                            </Button>
+                            />
                         )}
                         <Button
                             type="submit"

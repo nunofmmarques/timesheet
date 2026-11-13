@@ -1,7 +1,11 @@
 import { router, usePage } from '@inertiajs/react';
-import { FolderSearchIcon, SearchIcon, TrashIcon } from 'lucide-react';
+import { FolderKanbanIcon, FolderSearchIcon, SearchIcon } from 'lucide-react';
 import { useState } from 'react';
 import { FolderMark, folderMark } from '@/components/timesheet/folder-mark';
+import {
+    ConfirmDeleteButton,
+    SheetItemActions,
+} from '@/components/timesheet/sheet-actions';
 import {
     sheetNavCountClass,
     sheetNavTriggerClass,
@@ -176,26 +180,36 @@ export function RepositorySheet({
                                 <div className="truncate font-medium">
                                     {repository.name}
                                 </div>
-                                <FolderMark
-                                    path={repository.path}
-                                    roots={discoverRoots}
-                                />
+                                <div className="flex flex-col gap-0.5">
+                                    <FolderMark
+                                        path={repository.path}
+                                        roots={discoverRoots}
+                                    />
+                                    {repository.teamworkProjectName !==
+                                        null && (
+                                        <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                                            <FolderKanbanIcon className="size-3.5 shrink-0" />
+                                            <span className="truncate">
+                                                {repository.teamworkProjectName}
+                                            </span>
+                                        </span>
+                                    )}
+                                </div>
                             </div>
-                            <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => {
-                                    router.delete(
-                                        `/repositories/${repository.id}`,
-                                        {
-                                            preserveScroll: true,
-                                            preserveState: true,
-                                        },
-                                    );
-                                }}
-                            >
-                                <TrashIcon data-icon="inline-start" />
-                            </Button>
+                            <SheetItemActions>
+                                <ConfirmDeleteButton
+                                    label={`Remove ${repository.name}`}
+                                    onConfirm={() =>
+                                        router.delete(
+                                            `/repositories/${repository.id}`,
+                                            {
+                                                preserveScroll: true,
+                                                preserveState: true,
+                                            },
+                                        )
+                                    }
+                                />
+                            </SheetItemActions>
                         </div>
                     ))}
                 </div>

@@ -1,12 +1,11 @@
 import { router, useForm } from "@inertiajs/react";
-import {
-    CalendarIcon,
-    FlagIcon,
-    PencilIcon,
-    PlusIcon,
-    Trash2Icon,
-} from "lucide-react";
+import { CalendarIcon, FlagIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
+import {
+    ConfirmDeleteButton,
+    SheetEditButton,
+    SheetItemActions,
+} from "@/components/timesheet/sheet-actions";
 import { sheetNavTriggerClass } from "@/components/timesheet/sheet-nav";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -130,34 +129,24 @@ export function HolidaysSheet({
                                             </span>
                                         </span>
                                     </span>
-                                    <div className="flex shrink-0 items-center">
-                                        <Button
-                                            type="button"
-                                            size="icon-sm"
-                                            variant="ghost"
-                                            aria-label={`Edit ${holiday.name}`}
+                                    <SheetItemActions>
+                                        <SheetEditButton
+                                            label={`Edit ${holiday.name}`}
                                             onClick={() => {
                                                 setAdding(false);
                                                 setEditing(holiday);
                                             }}
-                                        >
-                                            <PencilIcon />
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            size="icon-sm"
-                                            variant="ghost"
-                                            aria-label={`Remove ${holiday.name}`}
-                                            onClick={() =>
+                                        />
+                                        <ConfirmDeleteButton
+                                            label={`Remove ${holiday.name}`}
+                                            onConfirm={() =>
                                                 router.delete(
                                                     `/holidays/${holiday.id}`,
                                                     { preserveScroll: true },
                                                 )
                                             }
-                                        >
-                                            <Trash2Icon />
-                                        </Button>
-                                    </div>
+                                        />
+                                    </SheetItemActions>
                                 </li>
                             ))}
                         </ul>
@@ -283,12 +272,30 @@ function HolidayForm({
                 </Field>
             </FieldGroup>
             <div className="flex items-center gap-2">
+                {holiday !== null && (
+                    <ConfirmDeleteButton
+                        labeled
+                        label={`Remove ${holiday.name}`}
+                        disabled={form.processing}
+                        onConfirm={() =>
+                            router.delete(`/holidays/${holiday.id}`, {
+                                preserveScroll: true,
+                                onSuccess: () => onDone(),
+                            })
+                        }
+                    />
+                )}
+                <Button
+                    type="button"
+                    variant="ghost"
+                    className="ml-auto"
+                    onClick={onDone}
+                >
+                    Cancel
+                </Button>
                 <Button type="submit" disabled={form.processing}>
                     {form.processing && <Spinner data-icon="inline-start" />}
                     {holiday === null ? "Save" : "Save changes"}
-                </Button>
-                <Button type="button" variant="ghost" onClick={onDone}>
-                    Cancel
                 </Button>
             </div>
         </form>

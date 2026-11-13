@@ -1,7 +1,20 @@
 import { router, useForm } from '@inertiajs/react';
-import { PencilIcon, PlusIcon, RepeatIcon, SearchIcon, Trash2Icon } from 'lucide-react';
+import {
+    CheckIcon,
+    FolderKanbanIcon,
+    ListTodoIcon,
+    PlusIcon,
+    RepeatIcon,
+    SearchIcon,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
+import {
+    ConfirmDeleteButton,
+    SheetEditButton,
+    SheetItemActions,
+} from '@/components/timesheet/sheet-actions';
 import { sheetNavTriggerClass } from '@/components/timesheet/sheet-nav';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
     Field,
@@ -101,12 +114,22 @@ export function ConstantsSheet({
                                             {weekdayLabel(constant.weekday)} ·{' '}
                                             {constant.start}–{constant.end}
                                         </span>
-                                        <span className="block text-muted-foreground">
-                                            {constant.projectName} ·{' '}
-                                            {constant.taskName}
-                                            {constant.billable
-                                                ? ''
-                                                : ' · Non-billable'}
+                                        <span className="mt-0.5 flex flex-col gap-0.5 text-muted-foreground">
+                                            <span className="flex items-center gap-1.5">
+                                                <FolderKanbanIcon className="size-3.5 shrink-0" />
+                                                <span className="truncate">
+                                                    {constant.projectName}
+                                                </span>
+                                            </span>
+                                            <span className="flex items-center gap-1.5">
+                                                <ListTodoIcon className="size-3.5 shrink-0" />
+                                                <span className="truncate">
+                                                    {constant.taskName}
+                                                    {constant.billable
+                                                        ? ''
+                                                        : ' · Non-billable'}
+                                                </span>
+                                            </span>
                                         </span>
                                         {constant.skippedDates.length > 0 && (
                                             <span className="mt-1 flex flex-wrap items-center gap-1">
@@ -135,34 +158,24 @@ export function ConstantsSheet({
                                             </span>
                                         )}
                                     </span>
-                                    <div className="flex shrink-0 items-center">
-                                        <Button
-                                            type="button"
-                                            size="icon-sm"
-                                            variant="ghost"
-                                            aria-label={`Edit ${constant.taskName}`}
+                                    <SheetItemActions>
+                                        <SheetEditButton
+                                            label={`Edit ${constant.taskName}`}
                                             onClick={() => {
                                                 setAdding(false);
                                                 setEditing(constant);
                                             }}
-                                        >
-                                            <PencilIcon />
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            size="icon-sm"
-                                            variant="ghost"
-                                            aria-label={`Remove ${constant.taskName}`}
-                                            onClick={() =>
+                                        />
+                                        <ConfirmDeleteButton
+                                            label={`Remove ${constant.taskName}`}
+                                            onConfirm={() =>
                                                 router.delete(
                                                     `/constants/${constant.id}`,
                                                     { preserveScroll: true },
                                                 )
                                             }
-                                        >
-                                            <Trash2Icon />
-                                        </Button>
-                                    </div>
+                                        />
+                                    </SheetItemActions>
                                 </li>
                             ))}
                         </ul>
@@ -243,6 +256,12 @@ function ConstantForm({
             .includes(taskNeedle);
     });
     const selected = (tasks ?? []).find((task) => task.id === form.data.task_id);
+    const currentTask =
+        constant !== null &&
+        form.data.task_id === constant.taskId &&
+        constant.taskName !== ''
+            ? constant.taskName
+            : null;
     const span = minutesBetween(form.data.start, form.data.end);
     const disabled = !configured || error !== null;
 
@@ -393,13 +412,14 @@ function ConstantForm({
                     </p>
                 </div>
                 <Field>
-                    <FieldLabel htmlFor="constant-project">
+                    <FieldLabel
+                        htmlFor="constant-project"
+                        className="items-center"
+                    >
+                        <FolderKanbanIcon className="size-3.5" />
                         Teamwork project
                     </FieldLabel>
-                    {project !== undefined && (
-                        <p className="text-sm font-medium">{project.name}</p>
-                    )}
-                    <InputGroup>
+                    <InputGroup className="!rounded-b-none border-b-0 -mb-2">
                         <InputGroupAddon>
                             <SearchIcon />
                         </InputGroupAddon>
@@ -413,7 +433,7 @@ function ConstantForm({
                             }
                         />
                     </InputGroup>
-                    <ScrollArea className="h-36 rounded-lg border">
+                    <ScrollArea className="h-36 rounded-b-lg border">
                         {visibleProjects.length === 0 && (
                             <p className="px-3 py-2 text-sm text-muted-foreground">
                                 {disabled
@@ -434,11 +454,22 @@ function ConstantForm({
                                     className="h-auto w-full justify-start px-2 py-1.5"
                                     onClick={() => chooseProject(item.id)}
                                 >
+                                    <FolderKanbanIcon />
                                     <span className="truncate">{item.name}</span>
+                                    {item.id === form.data.project_id && (
+                                        <CheckIcon className="ml-auto" />
+                                    )}
                                 </Button>
                             ))}
                         </div>
                     </ScrollArea>
+                    {project !== undefined && (
+                        <Alert>
+                            <CheckIcon />
+                            <AlertTitle>Selected</AlertTitle>
+                            <AlertDescription>{project.name}</AlertDescription>
+                        </Alert>
+                    )}
                     <FieldError
                         errors={
                             form.errors.project_id
@@ -449,20 +480,14 @@ function ConstantForm({
                 </Field>
                 {form.data.project_id !== 0 && (
                     <Field>
-                        <FieldLabel htmlFor="constant-task">Task</FieldLabel>
-                        {selected !== undefined && (
-                            <p className="text-sm">
-                                <span className="font-medium">
-                                    {taskPath(selected)}
-                                </span>
-                                {selected.tasklist !== '' && (
-                                    <span className="block text-muted-foreground">
-                                        {selected.tasklist}
-                                    </span>
-                                )}
-                            </p>
-                        )}
-                        <InputGroup>
+                        <FieldLabel
+                            htmlFor="constant-task"
+                            className="items-center"
+                        >
+                            <ListTodoIcon className="size-3.5" />
+                            Task
+                        </FieldLabel>
+                        <InputGroup className="!rounded-b-none border-b-0 -mb-2">
                             <InputGroupAddon>
                                 <SearchIcon />
                             </InputGroupAddon>
@@ -475,7 +500,7 @@ function ConstantForm({
                                 }
                             />
                         </InputGroup>
-                        <ScrollArea className="h-36 rounded-lg border">
+                        <ScrollArea className="h-36 rounded-b-lg border">
                             {tasks === null && (
                                 <p className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
                                     <Spinner />
@@ -483,7 +508,7 @@ function ConstantForm({
                                 </p>
                             )}
                             {loadError !== null && (
-                                <p className="px-3 py-2 text-sm text-destructive">
+                                <p className="px-3 py-2 text-sm text-muted-foreground">
                                     {loadError}
                                 </p>
                             )}
@@ -507,6 +532,7 @@ function ConstantForm({
                                             form.setData('task_id', task.id)
                                         }
                                     >
+                                        <ListTodoIcon />
                                         <span className="min-w-0 text-left">
                                             <span className="block truncate">
                                                 {taskPath(task)}
@@ -517,10 +543,27 @@ function ConstantForm({
                                                 </span>
                                             )}
                                         </span>
+                                        {task.id === form.data.task_id && (
+                                            <CheckIcon className="ml-auto" />
+                                        )}
                                     </Button>
                                 ))}
                             </div>
                         </ScrollArea>
+                        {(selected !== undefined || currentTask !== null) && (
+                            <Alert>
+                                <CheckIcon />
+                                <AlertTitle>Selected</AlertTitle>
+                                <AlertDescription>
+                                    {selected !== undefined
+                                        ? taskPath(selected)
+                                        : currentTask}
+                                    {selected !== undefined &&
+                                        selected.tasklist !== '' &&
+                                        ` · ${selected.tasklist}`}
+                                </AlertDescription>
+                            </Alert>
+                        )}
                         <FieldError
                             errors={
                                 form.errors.task_id
@@ -544,20 +587,34 @@ function ConstantForm({
                 </Field>
             </FieldGroup>
             <div className="flex items-center gap-2">
+                {constant !== null && (
+                    <ConfirmDeleteButton
+                        labeled
+                        label={`Remove ${constant.taskName}`}
+                        disabled={form.processing}
+                        onConfirm={() =>
+                            router.delete(`/constants/${constant.id}`, {
+                                preserveScroll: true,
+                                onSuccess: () => onDone(),
+                            })
+                        }
+                    />
+                )}
+                <Button
+                    type="button"
+                    variant="ghost"
+                    className="ml-auto"
+                    disabled={form.processing}
+                    onClick={onDone}
+                >
+                    Cancel
+                </Button>
                 <Button
                     type="submit"
                     disabled={form.processing || form.data.task_id === 0}
                 >
                     {form.processing && <Spinner data-icon="inline-start" />}
                     {constant === null ? 'Save constant' : 'Save changes'}
-                </Button>
-                <Button
-                    type="button"
-                    variant="outline"
-                    disabled={form.processing}
-                    onClick={onDone}
-                >
-                    Cancel
                 </Button>
             </div>
         </form>
