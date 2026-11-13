@@ -3,6 +3,7 @@ import {
     CalendarRangeIcon,
     ChevronLeftIcon,
     ChevronRightIcon,
+    FlagIcon,
 } from "lucide-react";
 import { useId, useMemo, type MouseEvent, type MouseEventHandler } from "react";
 import { Bar, BarChart, ReferenceLine, XAxis, YAxis } from "recharts";
@@ -26,7 +27,9 @@ import {
     type ChartConfig,
 } from "@/components/ui/chart";
 import { formatDuration, todayInLisbon } from "@/lib/timesheet";
-import type { AbsencePart, TimesheetDay } from "@/types/timesheet";
+import type { Holiday } from "@/types/holiday";
+import type { AbsencePart } from "@/types/time-off";
+import type { TimesheetDay } from "@/types/timesheet";
 
 const FULL_DAY = 8 * 60;
 
@@ -69,6 +72,7 @@ type ChartPoint = {
         label: string;
         part: AbsencePart;
     } | null;
+    holiday: string | null;
 };
 
 type ColumnShapeProps = {
@@ -90,17 +94,22 @@ type Span = "week" | "month";
 
 export function LoggedChart({
     days,
+    holidays,
     from,
     to,
     onNavigate,
 }: {
     days: TimesheetDay[];
+    holidays: Holiday[];
     from: string;
     to: string;
     onNavigate: (query: Record<string, string>) => void;
 }) {
     const patternId = `weekend-${useId().replaceAll(":", "")}`;
-    const points = useMemo(() => chartPoints(days, from, to), [days, from, to]);
+    const points = useMemo(
+        () => chartPoints(days, holidays, from, to),
+        [days, holidays, from, to],
+    );
     const byDate = useMemo(
         () => new Map(points.map((day) => [day.date, day])),
         [points],
@@ -288,6 +297,10 @@ export function LoggedChart({
                         <span className="size-2 rounded-sm bg-tw-purple" />
                         Time off
                     </span>
+                    <span className="flex items-center gap-1.5">
+                        <span className="size-2 rounded-sm bg-tw-violet" />
+                        Holiday
+                    </span>
                 </div>
             </CardFooter>
         </Card>
@@ -296,6 +309,7 @@ export function LoggedChart({
 
 function chartPoints(
     days: TimesheetDay[],
+    holidays: Holiday[],
     from: string,
     to: string,
 ): ChartPoint[] {
@@ -303,14 +317,20 @@ function chartPoints(
     const absences = new Map(
         days.map((day) => [day.date, chartAbsence(day.absence)]),
     );
+    const holidayNames = new Map(
+        holidays.map((holiday) => [holiday.date, holiday.name]),
+    );
     const dates = eachDate(from, to);
 
     if (dates.length === 0) {
-        return [...days]
-            .reverse()
-            .map((day) =>
-                point(day.date, splitLogged(day), chartAbsence(day.absence)),
-            );
+        return [...days].reverse().map((day) =>
+            point(
+                day.date,
+                splitLogged(day),
+                chartAbsence(day.absence),
+                holidayNames.get(day.date) ?? null,
+            ),
+        );
     }
 
     return dates.map((date) =>
@@ -318,6 +338,7 @@ function chartPoints(
             date,
             logged.get(date) ?? emptyLogged(),
             absences.get(date) ?? null,
+            holidayNames.get(date) ?? null,
         ),
     );
 }
@@ -386,6 +407,12 @@ function LoggedTooltip({
         <div className="grid min-w-32 items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
             <div className="font-medium">{row.label}</div>
             <div className="grid gap-1">
+                {row.holiday !== null && (
+                    <span className="flex items-center gap-1.5 font-medium">
+                        <FlagIcon className="size-3.5 text-tw-violet" />
+                        {row.holiday}
+                    </span>
+                )}
                 {row.absence && (
                     <span className="flex items-center gap-1.5 font-medium">
                         <AbsenceIcon
@@ -420,6 +447,7 @@ function point(
     date: string,
     logged: LoggedSplit,
     absence: ChartPoint["absence"],
+    holiday: string | null,
 ): ChartPoint {
     const parsed = localDate(date);
     const weekday = WEEKDAYS[parsed.getDay()];
@@ -438,6 +466,7 @@ function point(
         weekend: parsed.getDay() === 0 || parsed.getDay() === 6,
         today: date === todayInLisbon(),
         absence,
+        holiday,
     };
 }
 
@@ -709,7 +738,8 @@ function ColumnShape({
             : width > 0
               ? { x, y: slot.y, width, height: slot.height }
               : slot;
-    const weekend = Boolean(payload?.weekend) && column;
+    const holiday = Boolean(payload?.holiday) && column;
+    const weekend = Boolean(payload?.weekend) && !holiday && column;
     const absence = Boolean(payload?.absence) && !payload?.weekend && column;
     const absenceFrame =
         absence && column
@@ -728,6 +758,17 @@ function ColumnShape({
                     onClick={select}
                 />
             ) : null}
+            {holiday && column && (
+                <rect
+                    x={column.x}
+                    y={column.y}
+                    width={column.width}
+                    height={column.height}
+                    rx={3}
+                    fill="color-mix(in oklab, var(--color-tw-violet) 18%, transparent)"
+                    {...events}
+                />
+            )}
             {absence && absenceFrame && (
                 <rect
                     x={absenceFrame.x}
@@ -778,6 +819,29 @@ function ColumnShape({
                     height={nonBillableHeight}
                     fill="var(--color-tw-indigo)"
                     {...events}
+                />
+            )}
+            {holiday && column && (
+                <rect
+                    x={column.x}
+                    y={column.y}
+                    width={column.width}
+                    height={column.height}
+                    rx={3}
+                    fill="none"
+                    stroke="var(--color-tw-violet)"
+                    strokeWidth={1}
+                    pointerEvents="none"
+                />
+            )}
+            {holiday && column && (
+                <FlagIcon
+                    x={column.x + (column.width - 12) / 2}
+                    y={column.y + column.height - 16}
+                    width={12}
+                    height={12}
+                    aria-label={payload?.holiday ?? "Holiday"}
+                    className="pointer-events-none text-tw-violet"
                 />
             )}
             {absence && absenceFrame && (
@@ -899,9 +963,11 @@ function DayTick({
                 className={
                     point?.today
                         ? "fill-tw-orange text-[10px] font-bold"
-                        : point?.absence
-                          ? "fill-tw-purple text-[10px] font-medium"
-                          : "fill-muted-foreground text-[10px]"
+                        : point?.holiday
+                          ? "fill-tw-violet text-[10px] font-medium"
+                          : point?.absence
+                            ? "fill-tw-purple text-[10px] font-medium"
+                            : "fill-muted-foreground text-[10px]"
                 }
             >
                 <tspan

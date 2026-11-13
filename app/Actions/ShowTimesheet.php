@@ -4,6 +4,7 @@ namespace App\Actions;
 
 use App\Models\Absence;
 use App\Models\ConstantTask;
+use App\Models\Holiday;
 use App\Models\ConstantTaskSkip;
 use App\Models\Repository;
 use App\Services\GitCommitReader;
@@ -78,6 +79,8 @@ class ShowTimesheet
         $days = $this->includeConstantDays($days, $constants, $this->skippedIdsByDate($skips), $from, $to, $planner, $timezone);
         $absences = Absence::query()->orderByDesc('starts_on')->orderByDesc('id')->get();
         $days = $this->attachAbsences($days, $absences, $from, $to, $planner, $timezone);
+        $holidays = Holiday::query()->orderBy('date')->orderBy('id')->get();
+        $days = $this->attachHolidays($days, $holidays, $from, $to, $planner, $timezone);
 
         $discoverRoots = $catalog->discoverRoots();
         $teamworkProjects = $this->teamworkProjects($teamwork);
@@ -101,6 +104,11 @@ class ShowTimesheet
             'teamworkError' => $teamworkProjects['error'],
             'teamworkTimeError' => $loggedTime['error'],
             'teamworkConfigured' => $teamwork->configured(),
+            'holidays' => $holidays->map(fn (Holiday $holiday): array => [
+                'id' => $holiday->id,
+                'date' => $holiday->date->toDateString(),
+                'name' => $holiday->name,
+            ])->values(),
             'absences' => $absences->map(fn (Absence $absence): array => [
                 'id' => $absence->id,
                 'kind' => $absence->kind,
@@ -400,6 +408,50 @@ class ShowTimesheet
             if (! array_key_exists('absence', $day)) {
                 $byDate[$date]['absence'] = null;
             }
+        }
+
+        krsort($byDate);
+
+        return array_values($byDate);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $days
+     * @param  Collection<int, Holiday>  $holidays
+     * @return list<array<string, mixed>>
+     */
+    private function attachHolidays(array $days, Collection $holidays, string $from, string $to, WorkdayPlanner $planner, string $timezone): array
+    {
+        $byDate = [];
+
+        foreach ($days as $day) {
+            if (is_string($day['date'] ?? null)) {
+                $byDate[$day['date']] = $day;
+            }
+        }
+
+        $named = [];
+
+        foreach ($holidays as $holiday) {
+            $named[$holiday->date->toDateString()] = $holiday;
+        }
+
+        $cursor = CarbonImmutable::parse($from, $timezone)->startOfDay();
+        $end = CarbonImmutable::parse($to, $timezone)->startOfDay();
+
+        while ($cursor->lessThanOrEqualTo($end)) {
+            $date = $cursor->toDateString();
+            $match = $named[$date] ?? null;
+
+            if ($match instanceof Holiday && ! isset($byDate[$date])) {
+                $day = $planner->blankDay($date, $timezone);
+                $day['logged'] = [];
+                $day['loggedMinutes'] = 0;
+                $day['absence'] = null;
+                $byDate[$date] = $day;
+            }
+
+            $cursor = $cursor->addDay();
         }
 
         krsort($byDate);

@@ -26,7 +26,8 @@ import {
     SheetTitle,
     SheetTrigger,
 } from '@/components/ui/sheet';
-import type { RepositoryRecord, TeamworkProject } from '@/types/timesheet';
+import type { RepositoryRecord } from '@/types/repository';
+import type { TeamworkProject } from '@/types/teamwork';
 
 type ProjectOption = {
     value: string;

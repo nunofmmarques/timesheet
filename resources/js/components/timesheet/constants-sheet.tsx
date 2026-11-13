@@ -33,7 +33,8 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { formatDuration } from '@/lib/timesheet';
-import type { ConstantTask, TeamworkProject } from '@/types/timesheet';
+import type { ConstantTask } from '@/types/constant-task';
+import type { TeamworkProject } from '@/types/teamwork';
 
 const WEEKDAYS = [
     { value: '1', label: 'Monday' },

@@ -41,7 +41,7 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { todayInLisbon } from '@/lib/timesheet';
-import type { AbsencePart, TimeOff } from '@/types/timesheet';
+import type { AbsencePart, TimeOff } from '@/types/time-off';
 
 const KINDS = [
     { value: 'vacation', label: 'Vacation' },

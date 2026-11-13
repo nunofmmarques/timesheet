@@ -1,3 +1,10 @@
+import type { ConstantTask } from "@/types/constant-task";
+import type { Holiday } from "@/types/holiday";
+import type { RepositoryRecord } from "@/types/repository";
+import type { TimesheetSettings } from "@/types/settings";
+import type { TeamworkProject, TimesheetLog } from "@/types/teamwork";
+import type { DayAbsence, TimeOff } from "@/types/time-off";
+
 export type TimesheetCommit = {
     hash: string;
     shortHash: string;
@@ -27,53 +34,6 @@ export type TimesheetWindow = {
     end: string;
 };
 
-export type TimesheetLog = {
-    id: number;
-    time: string | null;
-    minutes: number;
-    description: string;
-    project: string;
-    projectId: number | null;
-    task: string;
-    taskId: number | null;
-    projectUrl: string | null;
-    taskUrl: string | null;
-    billable: boolean;
-};
-
-export type ConstantTask = {
-    id: number;
-    weekday: number;
-    start: string;
-    end: string;
-    projectId: number;
-    projectName: string;
-    taskId: number;
-    taskName: string;
-    billable: boolean;
-    skippedDates: string[];
-};
-
-export type AbsencePart = "day" | "morning" | "afternoon";
-
-export type TimeOff = {
-    id: number;
-    kind: string;
-    part: AbsencePart;
-    label: string;
-    note: string;
-    startsOn: string;
-    endsOn: string;
-};
-
-export type DayAbsence = {
-    id: number;
-    kind: string;
-    part: AbsencePart;
-    label: string;
-    note: string;
-};
-
 export type TimesheetDay = {
     date: string;
     label: string;
@@ -84,25 +44,6 @@ export type TimesheetDay = {
     loggedMinutes: number;
     logged: TimesheetLog[];
     absence: DayAbsence | null;
-};
-
-export type RepositoryRecord = {
-    id: number;
-    name: string;
-    path: string;
-    enabled: boolean;
-    teamworkProjectId: number | null;
-    teamworkProjectName: string | null;
-    teamworkProjectUrl: string | null;
-};
-
-export type TeamworkProject = {
-    id: number;
-    name: string;
-};
-
-export type TimesheetSettings = {
-    authorEmail: string;
 };
 
 export type TimesheetProblem = {
@@ -121,6 +62,7 @@ export type TimesheetPageProps = {
     teamworkError: string | null;
     teamworkTimeError: string | null;
     teamworkConfigured: boolean;
+    holidays: Holiday[];
     absences: TimeOff[];
     constants: ConstantTask[];
     settings: TimesheetSettings;

@@ -36,7 +36,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { formatDuration } from "@/lib/timesheet";
-import type { TeamworkProject, TimesheetLog } from "@/types/timesheet";
+import type { TeamworkProject, TimesheetLog } from "@/types/teamwork";
 
 type TeamworkTask = {
     id: number;

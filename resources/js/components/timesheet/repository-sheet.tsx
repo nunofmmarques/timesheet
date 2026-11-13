@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/sheet';
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
-import type { RepositoryRecord } from '@/types/timesheet';
+import type { RepositoryRecord } from '@/types/repository';
 
 export function RepositorySheet({
     repositories,

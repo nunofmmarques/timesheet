@@ -4,6 +4,7 @@ import {
     ChevronDownIcon,
     ClockIcon,
     EllipsisIcon,
+    FlagIcon,
     TriangleAlertIcon,
     GitBranchIcon,
     GitCommitHorizontalIcon,
@@ -53,15 +54,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import { formatDuration, todayInLisbon } from "@/lib/timesheet";
 import { cn } from "@/lib/utils";
+import type { ConstantTask } from "@/types/constant-task";
+import type { Holiday } from "@/types/holiday";
+import type { RepositoryRecord } from "@/types/repository";
+import type { TeamworkProject, TimesheetLog } from "@/types/teamwork";
+import type { AbsencePart, TimeOff } from "@/types/time-off";
 import type {
-    AbsencePart,
-    ConstantTask,
-    RepositoryRecord,
-    TeamworkProject,
-    TimeOff,
     TimesheetCommit,
     TimesheetDay,
-    TimesheetLog,
     TimesheetProject,
 } from "@/types/timesheet";
 
@@ -76,6 +76,7 @@ export function DaySection({
     teamworkError,
     constants,
     absences,
+    holidays,
 }: {
     day: TimesheetDay;
     repositories: RepositoryRecord[];
@@ -84,6 +85,7 @@ export function DaySection({
     teamworkError: string | null;
     constants: ConstantTask[];
     absences: TimeOff[];
+    holidays: Holiday[];
 }) {
     const rows =
         day.blocks.length > 0
@@ -137,6 +139,8 @@ export function DaySection({
     const overLogged = day.loggedMinutes > 8 * 60;
     const lunchOverlap = day.logged.some((entry) => overlapsLunch(entry));
     const today = day.date === todayInLisbon();
+    const holiday =
+        holidays.find((item) => item.date === day.date) ?? null;
     const absenceRecord =
         day.absence == null
             ? null
@@ -199,12 +203,19 @@ export function DaySection({
                         className={cn(
                             "font-heading text-base font-medium",
                             today && "text-tw-orange",
+                            !today && holiday !== null && "text-tw-violet",
                         )}
                     >
                         {day.label}
                     </h2>
                     {today && (
                         <Badge className="bg-tw-orange text-white">Today</Badge>
+                    )}
+                    {holiday !== null && (
+                        <Badge className="bg-tw-violet text-white">
+                            <FlagIcon data-icon="inline-start" />
+                            {holiday.name}
+                        </Badge>
                     )}
                     {fullDay && !overLogged && (
                         <Badge className="bg-green-600 text-white">

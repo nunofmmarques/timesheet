@@ -18,7 +18,7 @@ import {
     SheetTitle,
     SheetTrigger,
 } from '@/components/ui/sheet';
-import type { TimesheetSettings } from '@/types/timesheet';
+import type { TimesheetSettings } from '@/types/settings';
 
 export function SettingsSheet({ settings }: { settings: TimesheetSettings }) {
     const [authorEmail, setAuthorEmail] = useState(settings.authorEmail);
