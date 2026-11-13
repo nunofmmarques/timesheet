@@ -1,6 +1,10 @@
 import { Head, router, usePage } from "@inertiajs/react";
-import { GitCommitHorizontalIcon, TriangleAlertIcon } from "lucide-react";
-import { useEffect, useRef } from "react";
+import {
+    ArrowUpIcon,
+    GitCommitHorizontalIcon,
+    TriangleAlertIcon,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DaySection } from "@/components/timesheet/day-section";
 import { LoggedChart } from "@/components/timesheet/logged-chart";
@@ -206,7 +210,39 @@ export default function Timesheet({
                     </div>
                 </div>
             </main>
+            <BackToTop />
         </>
+    );
+}
+
+function BackToTop() {
+    const [visible, setVisible] = useState(false);
+
+    useEffect(() => {
+        function onScroll() {
+            setVisible(window.scrollY > 480);
+        }
+
+        onScroll();
+        window.addEventListener("scroll", onScroll, { passive: true });
+
+        return () => window.removeEventListener("scroll", onScroll);
+    }, []);
+
+    if (!visible) {
+        return null;
+    }
+
+    return (
+        <Button
+            type="button"
+            variant="outline"
+            className="fixed right-4 bottom-20 z-40 bg-background shadow-md"
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        >
+            <ArrowUpIcon data-icon="inline-start" />
+            Back to top
+        </Button>
     );
 }
 

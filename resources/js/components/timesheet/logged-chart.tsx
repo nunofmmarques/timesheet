@@ -655,6 +655,9 @@ function scrollToDay(date: string | undefined): void {
         behavior: "smooth",
         block: "start",
     });
+    window.dispatchEvent(
+        new CustomEvent("timesheet:reveal-day", { detail: date }),
+    );
 }
 
 type LoggedSplit = {

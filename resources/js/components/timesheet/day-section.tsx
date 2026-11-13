@@ -142,6 +142,9 @@ export function DaySection({
             ? null
             : (absences.find((item) => item.id === day.absence?.id) ?? null);
     const [timeOffOpen, setTimeOffOpen] = useState<"add" | "edit" | null>(null);
+    const [reveal, setReveal] = useState(0);
+    const [gitOpen, setGitOpen] = useState(!fullDay);
+    const [rowOpen, setRowOpen] = useState<Record<string, boolean>>({});
     const pending = constants.filter(
         (constant) =>
             constant.weekday === isoWeekday(day.date) &&
@@ -149,6 +152,42 @@ export function DaySection({
             !day.logged.some((entry) => covers(entry, constant)) &&
             !absenceCovers(day.absence, constant),
     );
+
+    useEffect(() => {
+        function onReveal(event: Event) {
+            if (
+                !(event instanceof CustomEvent) ||
+                event.detail !== day.date
+            ) {
+                return;
+            }
+
+            setReveal((value) => value + 1);
+        }
+
+        window.addEventListener("timesheet:reveal-day", onReveal);
+
+        return () =>
+            window.removeEventListener("timesheet:reveal-day", onReveal);
+    }, [day.date]);
+
+    useEffect(() => {
+        if (reveal === 0) {
+            return;
+        }
+
+        setGitOpen(true);
+        setRowOpen((current) => {
+            const next = { ...current };
+
+            for (const row of rows) {
+                next[row.key] = true;
+            }
+
+            return next;
+        });
+    }, [reveal]);
+
     return (
         <section
             id={`day-${day.date}`}
@@ -247,11 +286,13 @@ export function DaySection({
                     day={day}
                     projects={projects}
                     canLog={teamworkConfigured && teamworkError === null}
+                    reveal={reveal}
                 />
 
                 {rows.length > 0 && (
                     <Collapsible
-                        defaultOpen={!fullDay}
+                        open={gitOpen}
+                        onOpenChange={setGitOpen}
                         className="overflow-hidden bg-muted/50 ring-1 ring-foreground/10"
                     >
                         <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-sm font-medium">
@@ -262,7 +303,16 @@ export function DaySection({
                         <CollapsibleContent>
                             <div className="flex flex-col divide-y border-t bg-card">
                                 {rows.map((row) => (
-                                    <Collapsible key={row.key}>
+                                    <Collapsible
+                                        key={row.key}
+                                        open={rowOpen[row.key] ?? false}
+                                        onOpenChange={(open) =>
+                                            setRowOpen((current) => ({
+                                                ...current,
+                                                [row.key]: open,
+                                            }))
+                                        }
+                                    >
                                         <div className="flex items-center gap-2">
                                             <CollapsibleTrigger
                                                 render={
@@ -516,10 +566,12 @@ function LoggedTime({
     day,
     projects,
     canLog,
+    reveal,
 }: {
     day: TimesheetDay;
     projects: TeamworkProject[];
     canLog: boolean;
+    reveal: number;
 }) {
     const fullDay = day.loggedMinutes >= 8 * 60;
     const hasTime = day.loggedMinutes > 0;
@@ -527,10 +579,18 @@ function LoggedTime({
         day.loggedMinutes > 8 * 60 ||
         day.logged.some((entry) => overlapsLunch(entry));
     const [logging, setLogging] = useState(false);
+    const [open, setOpen] = useState(!fullDay || warned);
+
+    useEffect(() => {
+        if (reveal > 0) {
+            setOpen(true);
+        }
+    }, [reveal]);
 
     return (
         <Collapsible
-            defaultOpen={!fullDay || warned}
+            open={open}
+            onOpenChange={setOpen}
             className="overflow-hidden bg-muted/50 ring-1 ring-foreground/10"
         >
             <div className="flex items-center gap-2 px-3 py-2">
