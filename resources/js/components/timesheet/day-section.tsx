@@ -87,8 +87,15 @@ export function DaySection({
     absences: TimeOff[];
     holidays: Holiday[];
 }) {
+    const fullDay =
+        day.capacityMinutes > 0 &&
+        day.loggedMinutes >= day.capacityMinutes;
+    const overLogged =
+        day.capacityMinutes > 0 &&
+        day.loggedMinutes > day.capacityMinutes;
+    const suggestLogs = !fullDay;
     const rows =
-        day.blocks.length > 0
+        suggestLogs && day.blocks.length > 0
             ? day.blocks.map((block) => {
                   const project = projectFor(day.projects, block.repository);
                   const repository = repositoryFor(
@@ -122,9 +129,9 @@ export function DaySection({
                   return {
                       key: project.repositoryPath,
                       label: project.repository,
-                      meta: null,
-                      start: null,
-                      end: null,
+                      meta: null as string | null,
+                      start: null as string | null,
+                      end: null as string | null,
                       minutes: project.minutes,
                       commits: project.commits,
                       branches: branchNames(project.commits),
@@ -134,9 +141,6 @@ export function DaySection({
                           repository?.teamworkProjectName ?? null,
                   };
               });
-
-    const fullDay = day.loggedMinutes >= 8 * 60;
-    const overLogged = day.loggedMinutes > 8 * 60;
     const lunchOverlap = day.logged.some((entry) => overlapsLunch(entry));
     const today = day.date === todayInLisbon();
     const holiday =
@@ -220,7 +224,7 @@ export function DaySection({
                     {fullDay && !overLogged && (
                         <Badge className="bg-green-600 text-white">
                             <CheckIcon data-icon="inline-start" />
-                            8h logged
+                            {formatDuration(day.capacityMinutes)} logged
                         </Badge>
                     )}
                     {overLogged && (
@@ -289,7 +293,7 @@ export function DaySection({
                     />
                 )}
 
-                {pending.length > 0 && (
+                {suggestLogs && pending.length > 0 && (
                     <ConstantTime day={day} pending={pending} />
                 )}
 
@@ -334,19 +338,22 @@ export function DaySection({
                                                 }
                                             >
                                                 <span className="whitespace-nowrap text-muted-foreground tabular-nums">
-                                                    {row.meta}
+                                                    {suggestLogs
+                                                        ? row.meta
+                                                        : null}
                                                 </span>
                                                 <span className="text-right whitespace-nowrap tabular-nums">
-                                                    {row.minutes > 0 && (
-                                                        <>
-                                                            <span className="text-muted-foreground">
-                                                                to log{" "}
-                                                            </span>
-                                                            {formatDuration(
-                                                                row.minutes,
-                                                            )}
-                                                        </>
-                                                    )}
+                                                    {suggestLogs &&
+                                                        row.minutes > 0 && (
+                                                            <>
+                                                                <span className="text-muted-foreground">
+                                                                    to log{" "}
+                                                                </span>
+                                                                {formatDuration(
+                                                                    row.minutes,
+                                                                )}
+                                                            </>
+                                                        )}
                                                 </span>
                                                 <span className="flex min-w-0 items-center gap-2">
                                                     <span className="shrink-0 font-medium">
@@ -371,29 +378,51 @@ export function DaySection({
                                                     )}
                                                 </span>
                                             </CollapsibleTrigger>
-                                            <TeamworkLink
-                                                rowKey={row.key}
-                                                label={row.label}
-                                                date={day.date}
-                                                dateLabel={day.label}
-                                                start={row.start}
-                                                end={row.end}
-                                                minutes={row.minutes}
-                                                commits={row.commits}
-                                                logged={day.logged}
-                                                repositoryId={row.repositoryId}
-                                                projectId={
-                                                    row.teamworkProjectId
-                                                }
-                                                projectName={
-                                                    row.teamworkProjectName
-                                                }
-                                                projects={projects}
-                                                canLink={
-                                                    teamworkConfigured &&
-                                                    teamworkError === null
-                                                }
-                                            />
+                                            {suggestLogs ? (
+                                                <TeamworkLink
+                                                    rowKey={row.key}
+                                                    label={row.label}
+                                                    date={day.date}
+                                                    dateLabel={day.label}
+                                                    start={row.start}
+                                                    end={row.end}
+                                                    minutes={row.minutes}
+                                                    commits={row.commits}
+                                                    logged={day.logged}
+                                                    repositoryId={
+                                                        row.repositoryId
+                                                    }
+                                                    projectId={
+                                                        row.teamworkProjectId
+                                                    }
+                                                    projectName={
+                                                        row.teamworkProjectName
+                                                    }
+                                                    projects={projects}
+                                                    canLink={
+                                                        teamworkConfigured &&
+                                                        teamworkError === null
+                                                    }
+                                                />
+                                            ) : (
+                                                row.teamworkProjectId ===
+                                                    null && (
+                                                    <LinkProject
+                                                        repositoryId={
+                                                            row.repositoryId
+                                                        }
+                                                        repositoryName={
+                                                            row.label
+                                                        }
+                                                        projects={projects}
+                                                        canLink={
+                                                            teamworkConfigured &&
+                                                            teamworkError ===
+                                                                null
+                                                        }
+                                                    />
+                                                )
+                                            )}
                                             <CollapsibleTrigger
                                                 aria-label={`Toggle ${row.label}`}
                                                 className="mr-3 shrink-0 cursor-pointer"
@@ -584,10 +613,13 @@ function LoggedTime({
     canLog: boolean;
     reveal: number;
 }) {
-    const fullDay = day.loggedMinutes >= 8 * 60;
+    const fullDay =
+        day.capacityMinutes > 0 &&
+        day.loggedMinutes >= day.capacityMinutes;
     const hasTime = day.loggedMinutes > 0;
     const warned =
-        day.loggedMinutes > 8 * 60 ||
+        (day.capacityMinutes > 0 &&
+            day.loggedMinutes > day.capacityMinutes) ||
         day.logged.some((entry) => overlapsLunch(entry));
     const [logging, setLogging] = useState(false);
     const [open, setOpen] = useState(!fullDay || warned);
