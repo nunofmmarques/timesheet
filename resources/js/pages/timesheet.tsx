@@ -84,12 +84,13 @@ export default function Timesheet({
                     >
                         <RepositorySheet
                             repositories={repositories}
-                            discoverRoots={discoverRoots}
-                        />
-                        <TeamworkSheet
-                            repositories={repositories}
                             projects={teamworkProjects}
                             discoverRoots={discoverRoots}
+                            configured={teamworkConfigured}
+                            error={teamworkError}
+                        />
+                        <TeamworkSheet
+                            projects={teamworkProjects}
                             configured={teamworkConfigured}
                             error={teamworkError}
                         />

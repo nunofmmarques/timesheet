@@ -2,6 +2,7 @@ import {
     BabyIcon,
     BanknoteIcon,
     CalendarOffIcon,
+    HeartHandshakeIcon,
     ThermometerIcon,
     TreePalmIcon,
     type LucideIcon,
@@ -13,6 +14,7 @@ const ICONS: Record<string, LucideIcon> = {
     paid_leave: BanknoteIcon,
     parental: BabyIcon,
     sick: ThermometerIcon,
+    family_assistance: HeartHandshakeIcon,
     other: CalendarOffIcon,
 };
 

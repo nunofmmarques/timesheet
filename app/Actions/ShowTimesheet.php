@@ -4,8 +4,9 @@ namespace App\Actions;
 
 use App\Models\Absence;
 use App\Models\ConstantTask;
-use App\Models\Holiday;
 use App\Models\ConstantTaskSkip;
+use App\Models\DisabledTeamworkProject;
+use App\Models\Holiday;
 use App\Models\Repository;
 use App\Services\GitCommitReader;
 use App\Services\RepositoryCatalog;
@@ -225,7 +226,7 @@ class ShowTimesheet
     }
 
     /**
-     * @return array{projects: list<array{id: int, name: string}>, error: string|null}
+     * @return array{projects: list<array{id: int, name: string, enabled: bool, url: string|null}>, error: string|null}
      */
     private function teamworkProjects(TeamworkProjects $teamwork): array
     {
@@ -234,7 +235,22 @@ class ShowTimesheet
         }
 
         try {
-            return ['projects' => $teamwork->all(), 'error' => null];
+            $disabled = DisabledTeamworkProject::query()
+                ->pluck('teamwork_project_id')
+                ->map(fn (mixed $id): int => (int) $id)
+                ->all();
+
+            $projects = array_map(
+                fn (array $project): array => [
+                    'id' => $project['id'],
+                    'name' => $project['name'],
+                    'enabled' => ! in_array($project['id'], $disabled, true),
+                    'url' => $teamwork->projectUrl($project['id']),
+                ],
+                $teamwork->all(),
+            );
+
+            return ['projects' => $projects, 'error' => null];
         } catch (Throwable $exception) {
             report($exception);
 

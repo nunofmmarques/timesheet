@@ -1,6 +1,8 @@
 export type TeamworkProject = {
     id: number;
     name: string;
+    enabled: boolean;
+    url: string | null;
 };
 
 export type TimesheetLog = {

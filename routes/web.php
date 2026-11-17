@@ -19,6 +19,7 @@ use App\Actions\UpdateAbsence;
 use App\Actions\UpdateHoliday;
 use App\Actions\UpdateConstantTask;
 use App\Actions\UpdateRepository;
+use App\Actions\UpdateTeamworkProject;
 use App\Actions\UpdateTeamworkTime;
 use App\Actions\UpdateTimesheetSettings;
 use Illuminate\Support\Facades\Route;
@@ -42,6 +43,9 @@ Route::delete('/constants/{constant}/skips/{date}', RestoreConstantDay::class)
 Route::post('/repositories/scan', ScanRepositories::class)->name('repositories.scan');
 Route::patch('/repositories/{repository}', UpdateRepository::class)->name('repositories.update');
 Route::delete('/repositories/{repository}', DeleteRepository::class)->name('repositories.destroy');
+Route::patch('/teamwork/projects/{project}', UpdateTeamworkProject::class)
+    ->whereNumber('project')
+    ->name('teamwork.projects.update');
 Route::get('/teamwork/projects/{project}/tasks', ListTeamworkTasks::class)
     ->whereNumber('project')
     ->name('teamwork.tasks');

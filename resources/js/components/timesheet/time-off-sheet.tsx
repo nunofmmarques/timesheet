@@ -50,6 +50,7 @@ const KINDS = [
     { value: 'paid_leave', label: 'Paid leave' },
     { value: 'parental', label: 'Parental leave' },
     { value: 'sick', label: 'Sick leave' },
+    { value: 'family_assistance', label: 'Family Assistance' },
     { value: 'other', label: 'Other' },
 ];
 

@@ -30,6 +30,7 @@ class Absence extends Model
         'paid_leave' => 'Paid leave',
         'parental' => 'Parental leave',
         'sick' => 'Sick leave',
+        'family_assistance' => 'Family Assistance',
         'other' => 'Other',
     ];
 

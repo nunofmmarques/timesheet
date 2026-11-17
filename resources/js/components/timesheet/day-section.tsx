@@ -939,10 +939,12 @@ function LinkProject({
     const [tasksError, setTasksError] = useState<string | null>(null);
     const options = useMemo(
         () =>
-            projects.map((project) => ({
-                value: String(project.id),
-                label: project.name,
-            })),
+            projects
+                .filter((project) => project.enabled)
+                .map((project) => ({
+                    value: String(project.id),
+                    label: project.name,
+                })),
         [projects],
     );
     const needle = query.trim().toLowerCase();

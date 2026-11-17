@@ -155,11 +155,15 @@ export function LogTimeDialog({
         return ids;
     }, [logged, chosenProject]);
     const visibleProjects = useMemo(() => {
-        const matches = projects.filter((project) =>
-            projectNeedle === ""
+        const matches = projects.filter((project) => {
+            if (!project.enabled && project.id !== chosenProject) {
+                return false;
+            }
+
+            return projectNeedle === ""
                 ? true
-                : project.name.toLowerCase().includes(projectNeedle),
-        );
+                : project.name.toLowerCase().includes(projectNeedle);
+        });
         const suggested = loggedProjectIds
             .map((id) => matches.find((project) => project.id === id))
             .filter((project) => project !== undefined);
@@ -168,7 +172,7 @@ export function LogTimeDialog({
         );
 
         return { suggested, rest };
-    }, [projects, projectNeedle, loggedProjectIds]);
+    }, [projects, projectNeedle, loggedProjectIds, chosenProject]);
     const visibleTasks = useMemo(() => {
         const suggested = loggedTaskIds
             .map((id) => visible.find((task) => task.id === id))

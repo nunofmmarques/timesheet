@@ -276,11 +276,15 @@ function ConstantForm({
     const [loadError, setLoadError] = useState<string | null>(null);
     const project = projects.find((item) => item.id === form.data.project_id);
     const projectNeedle = projectQuery.trim().toLowerCase();
-    const visibleProjects = projects.filter((item) =>
-        projectNeedle === ""
+    const visibleProjects = projects.filter((item) => {
+        if (!item.enabled && item.id !== form.data.project_id) {
+            return false;
+        }
+
+        return projectNeedle === ""
             ? true
-            : item.name.toLowerCase().includes(projectNeedle),
-    );
+            : item.name.toLowerCase().includes(projectNeedle);
+    });
     const taskNeedle = taskQuery.trim().toLowerCase();
     const visibleTasks = (tasks ?? []).filter((task) => {
         if (taskNeedle === "") {
