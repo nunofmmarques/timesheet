@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\DeleteAbsence;
+use App\Actions\DeleteDayNote;
 use App\Actions\DeleteHoliday;
 use App\Actions\DeleteConstantTask;
 use App\Actions\DeleteRepository;
@@ -13,9 +14,11 @@ use App\Actions\RestoreConstantDay;
 use App\Actions\ScanRepositories;
 use App\Actions\ShowTimesheet;
 use App\Actions\StoreAbsence;
+use App\Actions\StoreDayNote;
 use App\Actions\StoreHoliday;
 use App\Actions\StoreConstantTask;
 use App\Actions\UpdateAbsence;
+use App\Actions\UpdateDayNote;
 use App\Actions\UpdateHoliday;
 use App\Actions\UpdateConstantTask;
 use App\Actions\UpdateRepository;
@@ -29,6 +32,9 @@ Route::put('/settings', UpdateTimesheetSettings::class)->name('settings.update')
 Route::post('/time-off', StoreAbsence::class)->name('time-off.store');
 Route::put('/time-off/{absence}', UpdateAbsence::class)->name('time-off.update');
 Route::delete('/time-off/{absence}', DeleteAbsence::class)->name('time-off.destroy');
+Route::post('/notes', StoreDayNote::class)->name('notes.store');
+Route::put('/notes/{note}', UpdateDayNote::class)->name('notes.update');
+Route::delete('/notes/{note}', DeleteDayNote::class)->name('notes.destroy');
 Route::post('/holidays', StoreHoliday::class)->name('holidays.store');
 Route::put('/holidays/{holiday}', UpdateHoliday::class)->name('holidays.update');
 Route::delete('/holidays/{holiday}', DeleteHoliday::class)->name('holidays.destroy');

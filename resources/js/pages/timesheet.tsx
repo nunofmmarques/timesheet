@@ -11,6 +11,7 @@ import { LoggedChart } from "@/components/timesheet/logged-chart";
 import { RepositorySheet } from "@/components/timesheet/repository-sheet";
 import { ConstantsSheet } from "@/components/timesheet/constants-sheet";
 import { HolidaysSheet } from "@/components/timesheet/holidays-sheet";
+import { NotesSheet } from "@/components/timesheet/notes-sheet";
 import { TimeOffSheet } from "@/components/timesheet/time-off-sheet";
 import { SettingsSheet } from "@/components/timesheet/settings-sheet";
 import { TeamworkSheet } from "@/components/timesheet/teamwork-sheet";
@@ -39,6 +40,7 @@ export default function Timesheet({
     teamworkTimeError,
     teamworkConfigured,
     absences,
+    notes,
     holidays,
     constants,
     settings,
@@ -105,6 +107,7 @@ export default function Timesheet({
                             error={teamworkError}
                         />
                         <TimeOffSheet absences={absences} />
+                        <NotesSheet notes={notes} />
                         <HolidaysSheet
                             holidays={holidays}
                             year={from.slice(0, 4)}

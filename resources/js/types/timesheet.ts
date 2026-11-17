@@ -1,4 +1,5 @@
 import type { ConstantTask } from "@/types/constant-task";
+import type { DayNote } from "@/types/day-note";
 import type { Holiday } from "@/types/holiday";
 import type { RepositoryRecord } from "@/types/repository";
 import type { TimesheetSettings } from "@/types/settings";
@@ -44,6 +45,7 @@ export type TimesheetDay = {
     loggedMinutes: number;
     logged: TimesheetLog[];
     absence: DayAbsence | null;
+    notes: DayNote[];
 };
 
 export type TimesheetProblem = {
@@ -64,6 +66,7 @@ export type TimesheetPageProps = {
     teamworkConfigured: boolean;
     holidays: Holiday[];
     absences: TimeOff[];
+    notes: DayNote[];
     constants: ConstantTask[];
     settings: TimesheetSettings;
     discoverRoot: string;

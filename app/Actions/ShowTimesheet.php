@@ -5,6 +5,7 @@ namespace App\Actions;
 use App\Models\Absence;
 use App\Models\ConstantTask;
 use App\Models\ConstantTaskSkip;
+use App\Models\DayNote;
 use App\Models\DisabledTeamworkProject;
 use App\Models\Holiday;
 use App\Models\Repository;
@@ -82,6 +83,12 @@ class ShowTimesheet
         $days = $this->attachAbsences($days, $absences, $from, $to, $planner, $timezone);
         $holidays = Holiday::query()->orderBy('date')->orderBy('id')->get();
         $days = $this->attachHolidays($days, $holidays, $from, $to, $planner, $timezone);
+        $notes = DayNote::query()
+            ->orderByDesc('date')
+            ->orderBy('time')
+            ->orderByDesc('id')
+            ->get();
+        $days = $this->attachNotes($days, $notes, $from, $to, $planner, $timezone);
 
         $discoverRoots = $catalog->discoverRoots();
         $teamworkProjects = $this->teamworkProjects($teamwork);
@@ -118,6 +125,12 @@ class ShowTimesheet
                 'note' => $absence->note ?? '',
                 'startsOn' => $absence->starts_on->toDateString(),
                 'endsOn' => $absence->ends_on->toDateString(),
+            ])->values(),
+            'notes' => $notes->map(fn (DayNote $note): array => [
+                'id' => $note->id,
+                'date' => $note->date->toDateString(),
+                'time' => $note->time,
+                'body' => $note->body,
             ])->values(),
             'constants' => $constants->map(fn (ConstantTask $constant): array => [
                 'id' => $constant->id,
@@ -468,6 +481,81 @@ class ShowTimesheet
             }
 
             $cursor = $cursor->addDay();
+        }
+
+        krsort($byDate);
+
+        return array_values($byDate);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $days
+     * @param  Collection<int, DayNote>  $notes
+     * @return list<array<string, mixed>>
+     */
+    private function attachNotes(array $days, Collection $notes, string $from, string $to, WorkdayPlanner $planner, string $timezone): array
+    {
+        $byDate = [];
+
+        foreach ($days as $day) {
+            if (is_string($day['date'] ?? null)) {
+                $byDate[$day['date']] = $day;
+            }
+        }
+
+        $grouped = [];
+
+        foreach ($notes as $note) {
+            $date = $note->date->toDateString();
+
+            if ($date < $from || $date > $to) {
+                continue;
+            }
+
+            $grouped[$date][] = [
+                'id' => $note->id,
+                'date' => $date,
+                'time' => $note->time,
+                'body' => $note->body,
+            ];
+        }
+
+        foreach ($grouped as $date => $dayNotes) {
+            usort($dayNotes, function (array $left, array $right): int {
+                $leftTime = $left['time'] ?? '99:99';
+                $rightTime = $right['time'] ?? '99:99';
+
+                return [$leftTime, $left['id']] <=> [$rightTime, $right['id']];
+            });
+            $grouped[$date] = $dayNotes;
+        }
+
+        $cursor = CarbonImmutable::parse($from, $timezone)->startOfDay();
+        $end = CarbonImmutable::parse($to, $timezone)->startOfDay();
+
+        while ($cursor->lessThanOrEqualTo($end)) {
+            $date = $cursor->toDateString();
+            $dayNotes = $grouped[$date] ?? [];
+
+            if ($dayNotes !== [] && ! isset($byDate[$date])) {
+                $day = $planner->blankDay($date, $timezone);
+                $day['logged'] = [];
+                $day['loggedMinutes'] = 0;
+                $day['absence'] = null;
+                $byDate[$date] = $day;
+            }
+
+            if (isset($byDate[$date])) {
+                $byDate[$date]['notes'] = $dayNotes;
+            }
+
+            $cursor = $cursor->addDay();
+        }
+
+        foreach ($byDate as $date => $day) {
+            if (! array_key_exists('notes', $day)) {
+                $byDate[$date]['notes'] = [];
+            }
         }
 
         krsort($byDate);

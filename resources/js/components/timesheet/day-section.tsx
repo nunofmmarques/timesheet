@@ -12,6 +12,7 @@ import {
     PencilIcon,
     RepeatIcon,
     SearchIcon,
+    StickyNoteIcon,
     TreePalmIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -20,6 +21,11 @@ import {
     absencePartLabel,
 } from "@/components/timesheet/absence-kind";
 import { LogTimeDialog } from "@/components/timesheet/log-time-dialog";
+import { NoteForm } from "@/components/timesheet/notes-sheet";
+import {
+    ConfirmDeleteButton,
+    SheetItemActions,
+} from "@/components/timesheet/sheet-actions";
 import { TimeOffForm } from "@/components/timesheet/time-off-sheet";
 import { TeamworkLogo } from "@/components/timesheet/teamwork-logo";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -55,6 +61,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { formatDuration, todayInLisbon } from "@/lib/timesheet";
 import { cn } from "@/lib/utils";
 import type { ConstantTask } from "@/types/constant-task";
+import type { DayNote } from "@/types/day-note";
 import type { Holiday } from "@/types/holiday";
 import type { RepositoryRecord } from "@/types/repository";
 import type { TeamworkProject, TimesheetLog } from "@/types/teamwork";
@@ -88,11 +95,9 @@ export function DaySection({
     holidays: Holiday[];
 }) {
     const fullDay =
-        day.capacityMinutes > 0 &&
-        day.loggedMinutes >= day.capacityMinutes;
+        day.capacityMinutes > 0 && day.loggedMinutes >= day.capacityMinutes;
     const overLogged =
-        day.capacityMinutes > 0 &&
-        day.loggedMinutes > day.capacityMinutes;
+        day.capacityMinutes > 0 && day.loggedMinutes > day.capacityMinutes;
     const suggestLogs = !fullDay;
     const rows =
         suggestLogs && day.blocks.length > 0
@@ -143,13 +148,13 @@ export function DaySection({
               });
     const lunchOverlap = day.logged.some((entry) => overlapsLunch(entry));
     const today = day.date === todayInLisbon();
-    const holiday =
-        holidays.find((item) => item.date === day.date) ?? null;
+    const holiday = holidays.find((item) => item.date === day.date) ?? null;
     const absenceRecord =
         day.absence == null
             ? null
             : (absences.find((item) => item.id === day.absence?.id) ?? null);
     const [timeOffOpen, setTimeOffOpen] = useState<"add" | "edit" | null>(null);
+    const [noteEditor, setNoteEditor] = useState<DayNote | "new" | null>(null);
     const [reveal, setReveal] = useState(0);
     const [gitOpen, setGitOpen] = useState(!fullDay);
     const [rowOpen, setRowOpen] = useState<Record<string, boolean>>({});
@@ -163,10 +168,7 @@ export function DaySection({
 
     useEffect(() => {
         function onReveal(event: Event) {
-            if (
-                !(event instanceof CustomEvent) ||
-                event.detail !== day.date
-            ) {
+            if (!(event instanceof CustomEvent) || event.detail !== day.date) {
                 return;
             }
 
@@ -257,6 +259,10 @@ export function DaySection({
                             <TreePalmIcon />
                             Add time off
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setNoteEditor("new")}>
+                            <StickyNoteIcon />
+                            Add note
+                        </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
@@ -283,6 +289,38 @@ export function DaySection({
                     )}
                 </DialogContent>
             </Dialog>
+            <Dialog
+                open={noteEditor !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setNoteEditor(null);
+                    }
+                }}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>
+                            {noteEditor !== null && noteEditor !== "new"
+                                ? "Edit note"
+                                : "Add note"}
+                        </DialogTitle>
+                        <DialogDescription>{day.label}</DialogDescription>
+                    </DialogHeader>
+                    {noteEditor !== null && (
+                        <NoteForm
+                            key={
+                                noteEditor === "new"
+                                    ? "new"
+                                    : String(noteEditor.id)
+                            }
+                            note={noteEditor === "new" ? null : noteEditor}
+                            initialDate={day.date}
+                            variant="dialog"
+                            onDone={() => setNoteEditor(null)}
+                        />
+                    )}
+                </DialogContent>
+            </Dialog>
 
             <div className="overflow-hidden rounded-xl bg-card ring-1 ring-border">
                 {day.absence != null && (
@@ -290,6 +328,13 @@ export function DaySection({
                         absence={day.absence}
                         record={absenceRecord}
                         dateLabel={day.label}
+                    />
+                )}
+
+                {day.notes.length > 0 && (
+                    <DayNotes
+                        notes={day.notes}
+                        onEdit={(note) => setNoteEditor(note)}
                     />
                 )}
 
@@ -346,7 +391,7 @@ export function DaySection({
                                                     {suggestLogs &&
                                                         row.minutes > 0 && (
                                                             <>
-                                                                <span className="text-muted-foreground">
+                                                                <span className=" text-xs text-muted-foreground">
                                                                     to log{" "}
                                                                 </span>
                                                                 {formatDuration(
@@ -449,6 +494,69 @@ export function DaySection({
     );
 }
 
+function DayNotes({
+    notes,
+    onEdit,
+}: {
+    notes: DayNote[];
+    onEdit: (note: DayNote) => void;
+}) {
+    const [open, setOpen] = useState(true);
+
+    return (
+        <Collapsible
+            open={open}
+            onOpenChange={setOpen}
+            className="overflow-hidden bg-muted/50 ring-1 ring-foreground/10"
+        >
+            <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-sm font-medium">
+                <StickyNoteIcon className="size-4" />
+                Notes
+                <ChevronDownIcon className="ml-auto size-4 transition-transform in-aria-expanded:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+                <ul className="flex flex-col divide-y border-t bg-card">
+                    {notes.map((note) => (
+                        <li
+                            key={note.id}
+                            className={cn(contentGrid, "px-3 py-2 text-sm")}
+                        >
+                            <span className="whitespace-nowrap text-muted-foreground tabular-nums">
+                                {note.time}
+                            </span>
+                            <span className="flex items-center justify-end">
+                                <StickyNoteIcon className="size-3 text-muted-foreground" />
+                            </span>
+                            <span className="min-w-0 whitespace-pre-wrap font-medium">
+                                {note.body}
+                            </span>
+                            <SheetItemActions>
+                                <Button
+                                    type="button"
+                                    size="icon-xs"
+                                    variant="ghost"
+                                    aria-label="Edit note"
+                                    onClick={() => onEdit(note)}
+                                >
+                                    <PencilIcon />
+                                </Button>
+                                <ConfirmDeleteButton
+                                    label="Remove note"
+                                    onConfirm={() =>
+                                        router.delete(`/notes/${note.id}`, {
+                                            preserveScroll: true,
+                                        })
+                                    }
+                                />
+                            </SheetItemActions>
+                        </li>
+                    ))}
+                </ul>
+            </CollapsibleContent>
+        </Collapsible>
+    );
+}
+
 function AbsenceTime({
     absence,
     record,
@@ -465,7 +573,7 @@ function AbsenceTime({
     return (
         <div>
             <div className="flex items-center gap-2 bg-muted/50 px-3 py-2 text-sm font-medium ring-1 ring-foreground/10">
-                <AbsenceIcon kind={absence.kind} className="size-4" />
+                <AbsenceIcon kind={"vacation"} className="size-4" />
                 Absence
             </div>
             <ul className="flex flex-col border-t">
@@ -614,12 +722,10 @@ function LoggedTime({
     reveal: number;
 }) {
     const fullDay =
-        day.capacityMinutes > 0 &&
-        day.loggedMinutes >= day.capacityMinutes;
+        day.capacityMinutes > 0 && day.loggedMinutes >= day.capacityMinutes;
     const hasTime = day.loggedMinutes > 0;
     const warned =
-        (day.capacityMinutes > 0 &&
-            day.loggedMinutes > day.capacityMinutes) ||
+        (day.capacityMinutes > 0 && day.loggedMinutes > day.capacityMinutes) ||
         day.logged.some((entry) => overlapsLunch(entry));
     const [logging, setLogging] = useState(false);
     const [open, setOpen] = useState(!fullDay || warned);
